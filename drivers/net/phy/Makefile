@@ -42,3 +42,7 @@ obj-$(CONFIG_MDIO_MOXART)	+= mdio-moxart.o
 obj-$(CONFIG_MDIO_BCM_UNIMAC)	+= mdio-bcm-unimac.o
 obj-$(CONFIG_MICROCHIP_PHY)	+= microchip.o
 obj-$(CONFIG_MDIO_BCM_IPROC)	+= mdio-bcm-iproc.o
+obj-$(CONFIG_SWCONFIG)		+= swconfig.o
+obj-$(CONFIG_MVSWITCH_PHY)	+= mvswitch.o
+obj-$(CONFIG_MVSW61XX_PHY)	+= mvsw61xx.o
+
