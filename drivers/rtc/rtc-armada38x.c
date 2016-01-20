@@ -26,14 +26,22 @@
 #define RTC_IRQ1_AL_EN		    BIT(0)
 #define RTC_IRQ1_FREQ_EN	    BIT(1)
 #define RTC_IRQ1_FREQ_1HZ	    BIT(2)
+#define RTC_IRQ2_CONF	    0x8
 #define RTC_TIME	    0xC
 #define RTC_ALARM1	    0x10
+#define RTC_ALARM2	    0x14
+#define RTC_CLOCK_CORR	    0x18
+#define RTC_TEST_CONFIG	    0x1C
 
 #define SOC_RTC_INTERRUPT   0x8
 #define SOC_RTC_ALARM1		BIT(0)
 #define SOC_RTC_ALARM2		BIT(1)
 #define SOC_RTC_ALARM1_MASK	BIT(2)
 #define SOC_RTC_ALARM2_MASK	BIT(3)
+
+#define RTC_NOMINAL_TIMING 0x0
+#define RTC_SZ_STATUS_ALARM1_MASK	0x1
+#define RTC_SZ_STATUS_ALARM2_MASK	0x2
 
 struct armada38x_rtc {
 	struct rtc_device   *rtc_dev;
@@ -72,6 +80,8 @@ static int armada38x_rtc_read_time(struct device *dev, struct rtc_time *tm)
 
 	spin_unlock_irqrestore(&rtc->lock, flags);
 
+	//printk("armada38x_rtc_read_time 0x%x\n", time_check);
+
 	rtc_time_to_tm(time_check, tm);
 
 	return 0;
@@ -87,6 +97,8 @@ static int armada38x_rtc_set_time(struct device *dev, struct rtc_time *tm)
 
 	if (ret)
 		goto out;
+
+	//printk("armada38x_rtc_set_time 0x%x\n", time);
 	/*
 	 * According to errata FE-3124064, Write to RTC TIME register
 	 * may fail. As a workaround, after writing to RTC TIME
@@ -101,6 +113,46 @@ static int armada38x_rtc_set_time(struct device *dev, struct rtc_time *tm)
 
 out:
 	return ret;
+}
+
+static bool rtc_init_state(struct armada38x_rtc *rtc)
+{
+	uint32_t stat, alrm1, alrm2, int1, int2, tstcfg;
+
+	/* Update RTC-MBUS bridge timing parameters */
+	writel(0xFD4D4CFA, rtc->regs_soc);
+
+	/* Make sure we are not in any test mode */
+	writel(0, rtc->regs + RTC_TEST_CONFIG);
+	msleep_interruptible(500);
+
+	/* Setup nominal register access timing */
+	writel(RTC_NOMINAL_TIMING, rtc->regs + RTC_CLOCK_CORR);
+
+	/* Turn off Int1 sources & clear the Alarm count */
+	writel(0, rtc->regs + RTC_IRQ1_CONF);
+	writel(0, rtc->regs + RTC_ALARM1);
+
+	/* Turn off Int2 sources & clear the Periodic count */
+	writel(0, rtc->regs + RTC_IRQ2_CONF);
+	writel(0, rtc->regs + RTC_ALARM2);
+
+	/* Clear any pending Status bits */
+	writel((RTC_SZ_STATUS_ALARM1_MASK | RTC_SZ_STATUS_ALARM2_MASK), rtc->regs + RTC_STATUS);
+
+	stat   = readl(rtc->regs + RTC_STATUS) & 0xFF;
+	alrm1  = readl(rtc->regs + RTC_ALARM1);
+	int1   = readl(rtc->regs + RTC_IRQ1_CONF) & 0xFF;
+	alrm2  = readl(rtc->regs + RTC_ALARM2);
+	int2   = readl(rtc->regs + RTC_IRQ2_CONF) & 0xFF;
+	tstcfg = readl(rtc->regs + RTC_TEST_CONFIG) & 0xFF;
+
+	if ((0xFC == stat) && (0 == alrm1) && (0xC0 == int1) &&
+	    (0 == alrm2) && (0xC0 == int2) && (0 == tstcfg)) {
+		return true;
+	} else {
+		return false;
+	}
 }
 
 static int armada38x_rtc_read_alarm(struct device *dev, struct rtc_wkalrm *alrm)
@@ -215,6 +267,7 @@ static __init int armada38x_rtc_probe(struct platform_device *pdev)
 	struct resource *res;
 	struct armada38x_rtc *rtc;
 	int ret;
+	uint32_t init_count = 3;
 
 	rtc = devm_kzalloc(&pdev->dev, sizeof(struct armada38x_rtc),
 			    GFP_KERNEL);
@@ -231,6 +284,13 @@ static __init int armada38x_rtc_probe(struct platform_device *pdev)
 	rtc->regs_soc = devm_ioremap_resource(&pdev->dev, res);
 	if (IS_ERR(rtc->regs_soc))
 		return PTR_ERR(rtc->regs_soc);
+
+	while (!rtc_init_state(rtc) && --init_count);
+
+	if (init_count == 0) {
+		dev_err(&pdev->dev, "%probe: Error in rtc_init_state\n", __func__);
+		return -ENODEV;
+	}
 
 	rtc->irq = platform_get_irq(pdev, 0);
 
