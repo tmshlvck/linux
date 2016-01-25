@@ -642,8 +642,6 @@ static void mvsw6176_quirks(struct switch_dev *dev)
 		copperreg=smisr16(dev, PHY_ADDR(i, PHY_CONTROL_REG));
 		copperreg&=~PHY_CONTROL_PWR;
 		smisw16(dev, PHY_ADDR(i, PHY_CONTROL_REG), copperreg);
-
-		printk("mvsw debug: i=%d pagereg=0x%04x, copperreg=0x%04x\n, cospcreg=0x%04x\n", i, pagereg, copperreg, copperspecreg);
 	}
 
 	/* Enable forwarding (STP mode) */
@@ -722,24 +720,6 @@ static int mvsw61xx_reset(struct switch_dev *dev)
 		reg = sr16(dev, MV_PORTREG(CONTROL, i)) |
 			MV_PORTCTRL_FORWARDING;
 		sw16(dev, MV_PORTREG(CONTROL, i), reg);
-
-		/* debug debug debug */
-		int j;
-		for(j=0; j<=0x1b; j++) {
-		reg=sr16(dev, 0x10+i, j);
-		printk("mvsw debug: port=%d port_status_%02x=0x%04x\n", i, j, reg);
-		}
-
-	}
-
-	// debug debug debug
-	for (i=0;i<=0xf;i++) {
-		reg=sr16(dev, MV_SWITCH_GLOBAL, i);
-		printk("mvsw debug: global_%02x=0x%04x\n", i, reg);
-	}
-	for (i=0;i<=0x1d;i++) {
-		reg=sr16(dev, MV_SWITCH_GLOBAL2, i);
-		printk("mvsw debug: global2_%02x=0x%04x\n", i, reg);
 	}
 
 	return 0;
