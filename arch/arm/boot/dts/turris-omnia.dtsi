@@ -33,9 +33,14 @@
 					spi-max-frequency = <40000000>;
 
 					partition@0 {
-						reg = <0x0 0x00800000>;
-                                		label = "SPI flash";
-                        		};
+						reg = <0x0 0x00100000>;
+						label = "U-Boot";
+					};
+					partition@1 {
+						reg = <0x00100000 0x00700000>;
+						label = "Rescue system";
+					};
+
 				};
 				spi-nor@1 {
 					/* Test */
@@ -47,8 +52,8 @@
 
 					partition@0 {
 						reg = <0x0 0x00800000>;
-                                		label = "SPI flash test";
-                        		};
+						label = "SPI flash";
+					};
 				};
 			};
 
