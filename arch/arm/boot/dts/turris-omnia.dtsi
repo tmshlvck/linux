@@ -42,19 +42,6 @@
 					};
 
 				};
-				spi-nor@1 {
-					/* Test */
-					compatible = "spansion,s25fl164k", "jedec,spi-nor";
-					#address-cells = <1>;
-					#size-cells = <1>;
-					reg = <2>;
-					spi-max-frequency = <40000000>;
-
-					partition@0 {
-						reg = <0x0 0x00800000>;
-						label = "SPI flash";
-					};
-				};
 			};
 
 			i2c@11000 {
@@ -76,12 +63,13 @@
 						status = "okay";
 
 						/* Config memory */
-				/*		eeprom@54 {
+					/*	eeprom@54 {
 							compatible = "at,24c64";
 							reg = <0x54>;
-						}; */
+						};
+					*/
 
-						/* Additional device: STM-32, address 0x2a, INT 43. */
+						/* Additional device: STM-32, address 0x2a, INT on 43. */
       					};
 					i2c@1 {
 						/* SATA */
@@ -118,12 +106,6 @@
 						#address-cells = <1>;
 						#size-cells = <0>;
 						reg = <6>;
-
-						/* Test */
-					/*	eeprom@50 {
-							compatible = "at,24c04";
-							reg = <0x50>;
-						}; */
       					};
 				};
 			};
@@ -148,8 +130,7 @@
 					status = "okay";
 					compatible = "marvell,88E1514", "marvell,88E1510", "ethernet-phy-ieee802.3-c22";
 					reg = <1>;
-/* Is the IRQ connected??? */
-/*					interrupts = <GIC_SPI 46 IRQ_TYPE_LEVEL_HIGH>; */
+					/* There is an IRQ connected to MPP46. Can it be used through GPIO driver here? */
 				};
 			};
  
@@ -176,11 +157,14 @@
 			ethernet@34000 {
 				status = "okay";
 				phy-mode = "sgmii";
-/*				fixed-link {
+			/*	managed = "in-band-status";
+
+				fixed-link {
 					speed = <1000>;
 					full-duplex;
 				};
-*/
+			*/
+
 				phy = <&phy1>;
 			};
 
@@ -247,10 +231,11 @@
                 #address-cells = <1>;
                 #size-cells = <0>;
 
-                mcuint {
+                button@212 {
                         label = "mcuint";
-                        linux,code = <212>;
-			interrupts = <GIC_SPI 43 IRQ_TYPE_LEVEL_HIGH>;
+                        linux,code = <BTN_MISC>;
+			gpios = <&gpio1 11 GPIO_ACTIVE_LOW>;
+			debounce-interval = <0>;
                 };
         };
 };
