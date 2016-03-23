@@ -130,7 +130,9 @@
 					status = "okay";
 					compatible = "marvell,88E1514", "marvell,88E1510", "ethernet-phy-ieee802.3-c22";
 					reg = <1>;
-					/* There is an IRQ connected to MPP46. Can it be used through GPIO driver here? */
+					/* IRQ connected to MPP46. */
+				/*	interrupt-parent = <&gpio1>;
+					interrupts = <14 IRQ_TYPE_LEVEL_LOW>; */
 				};
 			};
  
@@ -224,6 +226,10 @@
 		mii-bus = <&mdio>;
 		cpu-port-0 = <5>;
 		cpu-port-1 = <6>;
+
+		/* IRQ connected to MPP45. */
+	/*	interrupt-parent = <&gpio1>;
+		interrupts = <13 IRQ_TYPE_LEVEL_LOW>; */
 	};
 
         gpio-keys {
