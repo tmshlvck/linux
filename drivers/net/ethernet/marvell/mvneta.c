@@ -2983,6 +2983,87 @@ static int mvneta_percpu_notifier(struct notifier_block *nfb,
 	return NOTIFY_OK;
 }
 
+/** Forward declaration for mvneta_prepare_phy */
+static int mvneta_port_power_up(struct mvneta_port *pp, int phy_mode);
+
+static int mvneta_prepare_phy(struct platform_device *pdev)
+{
+	struct device_node *dn = pdev->dev.of_node;
+	struct net_device *dev;
+	struct mvneta_port *pp;
+	struct device_node *phy_node;
+	const char *managed;
+	int phy_mode;
+	int err;
+
+	dev = platform_get_drvdata(pdev);
+	pp = netdev_priv(dev);
+
+	phy_node = of_parse_phandle(dn, "phy", 0);
+	if (!phy_node) {
+		if (!of_phy_is_fixed_link(dn)) {
+			dev_err(&pdev->dev, "no PHY specified\n");
+			return -ENODEV;
+		}
+
+		err = of_phy_register_fixed_link(dn);
+		if (err < 0) {
+			dev_err(&pdev->dev, "cannot register fixed PHY\n");
+			return -ENODEV;
+		}
+
+		/* In the case of a fixed PHY, the DT node associated
+		 * to the PHY is the Ethernet MAC DT node.
+		 */
+		phy_node = of_node_get(dn);
+	}
+
+	phy_mode = of_get_phy_mode(dn);
+	if (phy_mode < 0) {
+		dev_err(&pdev->dev, "incorrect phy-mode\n");
+		err = -EINVAL;
+		goto err_put_phy_node;
+	}
+
+	pp->phy_node = phy_node;
+	pp->phy_interface = phy_mode;
+
+	err = of_property_read_string(dn, "managed", &managed);
+	pp->use_inband_status = (err == 0 &&
+				 strcmp(managed, "in-band-status") == 0);
+	pp->cpu_notifier.notifier_call = mvneta_percpu_notifier;
+
+	err = mvneta_port_power_up(pp, phy_mode);
+	if (err < 0) {
+		dev_err(&pdev->dev, "can't power up port\n");
+		goto err_put_phy_node;
+	}
+
+	if (pp->use_inband_status) {
+		struct phy_device *phy = of_phy_find_device(dn);
+
+		mvneta_fixed_link_update(pp, phy);
+
+		put_device(&phy->mdio.dev);
+	}
+
+	return 0;
+
+err_put_phy_node:
+	of_node_put(phy_node);
+	return err;
+}
+
+static void mvneta_unprepare_phy(struct platform_device *pdev)
+{
+	struct mvneta_port *pp;
+	struct net_device *dev;
+
+	dev = platform_get_drvdata(pdev);
+	pp = netdev_priv(dev);
+	of_node_put(pp->phy_node);
+}
+
 static int mvneta_open(struct net_device *dev)
 {
 	struct mvneta_port *pp = netdev_priv(dev);
@@ -3537,15 +3618,12 @@ static int mvneta_probe(struct platform_device *pdev)
 	const struct mbus_dram_target_info *dram_target_info;
 	struct resource *res;
 	struct device_node *dn = pdev->dev.of_node;
-	struct device_node *phy_node;
 	struct mvneta_port *pp;
 	struct net_device *dev;
 	const char *dt_mac_addr;
 	char hw_mac_addr[ETH_ALEN];
 	const char *mac_from;
-	const char *managed;
 	int tx_csum_limit;
-	int phy_mode;
 	int err;
 	int cpu;
 
@@ -3559,47 +3637,12 @@ static int mvneta_probe(struct platform_device *pdev)
 		goto err_free_netdev;
 	}
 
-	phy_node = of_parse_phandle(dn, "phy", 0);
-	if (!phy_node) {
-		if (!of_phy_is_fixed_link(dn)) {
-			dev_err(&pdev->dev, "no PHY specified\n");
-			err = -ENODEV;
-			goto err_free_irq;
-		}
-
-		err = of_phy_register_fixed_link(dn);
-		if (err < 0) {
-			dev_err(&pdev->dev, "cannot register fixed PHY\n");
-			goto err_free_irq;
-		}
-
-		/* In the case of a fixed PHY, the DT node associated
-		 * to the PHY is the Ethernet MAC DT node.
-		 */
-		phy_node = of_node_get(dn);
-	}
-
-	phy_mode = of_get_phy_mode(dn);
-	if (phy_mode < 0) {
-		dev_err(&pdev->dev, "incorrect phy-mode\n");
-		err = -EINVAL;
-		goto err_put_phy_node;
-	}
-
 	dev->tx_queue_len = MVNETA_MAX_TXD;
 	dev->watchdog_timeo = 5 * HZ;
 	dev->netdev_ops = &mvneta_netdev_ops;
-
 	dev->ethtool_ops = &mvneta_eth_tool_ops;
 
 	pp = netdev_priv(dev);
-	pp->phy_node = phy_node;
-	pp->phy_interface = phy_mode;
-
-	err = of_property_read_string(dn, "managed", &managed);
-	pp->use_inband_status = (err == 0 &&
-				 strcmp(managed, "in-band-status") == 0);
-	pp->cpu_notifier.notifier_call = mvneta_percpu_notifier;
 
 	pp->rxq_def = rxq_def;
 
@@ -3608,7 +3651,7 @@ static int mvneta_probe(struct platform_device *pdev)
 	pp->clk = devm_clk_get(&pdev->dev, NULL);
 	if (IS_ERR(pp->clk)) {
 		err = PTR_ERR(pp->clk);
-		goto err_put_phy_node;
+		goto err_free_irq;
 	}
 
 	clk_prepare_enable(pp->clk);
@@ -3675,12 +3718,6 @@ static int mvneta_probe(struct platform_device *pdev)
 	if (err < 0)
 		goto err_free_stats;
 
-	err = mvneta_port_power_up(pp, phy_mode);
-	if (err < 0) {
-		dev_err(&pdev->dev, "can't power up port\n");
-		goto err_free_stats;
-	}
-
 	dram_target_info = mv_mbus_dram_info();
 	if (dram_target_info)
 		mvneta_conf_mbus_windows(pp, dram_target_info);
@@ -3709,24 +3746,19 @@ static int mvneta_probe(struct platform_device *pdev)
 
 	platform_set_drvdata(pdev, pp->dev);
 
-	if (pp->use_inband_status) {
-		struct phy_device *phy = of_phy_find_device(dn);
-
-		mvneta_fixed_link_update(pp, phy);
-
-		put_device(&phy->mdio.dev);
-	}
+	if ((err = mvneta_prepare_phy(pdev)))
+		goto err_netdev;
 
 	return 0;
 
+err_netdev:
+	unregister_netdev(dev);
 err_free_stats:
 	free_percpu(pp->stats);
 err_free_ports:
 	free_percpu(pp->ports);
 err_clk:
 	clk_disable_unprepare(pp->clk);
-err_put_phy_node:
-	of_node_put(phy_node);
 err_free_irq:
 	irq_dispose_mapping(dev->irq);
 err_free_netdev:
@@ -3745,7 +3777,7 @@ static int mvneta_remove(struct platform_device *pdev)
 	free_percpu(pp->ports);
 	free_percpu(pp->stats);
 	irq_dispose_mapping(dev->irq);
-	of_node_put(pp->phy_node);
+	mvneta_unprepare_phy(pdev);
 	free_netdev(dev);
 
 	return 0;
