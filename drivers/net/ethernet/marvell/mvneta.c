@@ -3067,15 +3067,20 @@ static void mvneta_unprepare_phy(struct platform_device *pdev)
 static int mvneta_open(struct net_device *dev)
 {
 	struct mvneta_port *pp = netdev_priv(dev);
+	struct platform_device *pdev;
 	int ret, cpu;
 
 	pp->pkt_size = MVNETA_RX_PKT_SIZE(pp->dev->mtu);
 	pp->frag_size = SKB_DATA_ALIGN(MVNETA_RX_BUF_SIZE(pp->pkt_size)) +
 	                SKB_DATA_ALIGN(sizeof(struct skb_shared_info));
 
+	pdev = to_platform_device(dev->dev.parent);
+	if ((ret = mvneta_prepare_phy(pdev)))
+		return ret;
+
 	ret = mvneta_setup_rxqs(pp);
 	if (ret)
-		return ret;
+		goto err_unprepare_phy;
 
 	ret = mvneta_setup_txqs(pp);
 	if (ret)
@@ -3129,6 +3134,8 @@ err_cleanup_txqs:
 	mvneta_cleanup_txqs(pp);
 err_cleanup_rxqs:
 	mvneta_cleanup_rxqs(pp);
+err_unprepare_phy:
+	mvneta_unprepare_phy(pdev);
 	return ret;
 }
 
@@ -3136,6 +3143,7 @@ err_cleanup_rxqs:
 static int mvneta_stop(struct net_device *dev)
 {
 	struct mvneta_port *pp = netdev_priv(dev);
+	struct platform_device *pdev;
 	int cpu;
 
 	mvneta_stop_dev(pp);
@@ -3146,6 +3154,9 @@ static int mvneta_stop(struct net_device *dev)
 	free_percpu_irq(dev->irq, pp->ports);
 	mvneta_cleanup_rxqs(pp);
 	mvneta_cleanup_txqs(pp);
+
+	pdev = to_platform_device(dev->dev.parent);
+	mvneta_unprepare_phy(pdev);
 
 	return 0;
 }
@@ -3745,14 +3756,8 @@ static int mvneta_probe(struct platform_device *pdev)
 		    dev->dev_addr);
 
 	platform_set_drvdata(pdev, pp->dev);
-
-	if ((err = mvneta_prepare_phy(pdev)))
-		goto err_netdev;
-
 	return 0;
 
-err_netdev:
-	unregister_netdev(dev);
 err_free_stats:
 	free_percpu(pp->stats);
 err_free_ports:
@@ -3777,7 +3782,6 @@ static int mvneta_remove(struct platform_device *pdev)
 	free_percpu(pp->ports);
 	free_percpu(pp->stats);
 	irq_dispose_mapping(dev->irq);
-	mvneta_unprepare_phy(pdev);
 	free_netdev(dev);
 
 	return 0;
