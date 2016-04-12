@@ -2991,7 +2991,9 @@ static int mvneta_prepare_phy(struct platform_device *pdev)
 	struct device_node *dn = pdev->dev.of_node;
 	struct net_device *dev;
 	struct mvneta_port *pp;
+	struct device_node *mode_dn;
 	struct device_node *phy_node;
+	const char *cfg_name = "phy-def";
 	const char *managed;
 	int phy_mode;
 	int err;
@@ -2999,14 +3001,21 @@ static int mvneta_prepare_phy(struct platform_device *pdev)
 	dev = platform_get_drvdata(pdev);
 	pp = netdev_priv(dev);
 
-	phy_node = of_parse_phandle(dn, "phy", 0);
+	mode_dn = of_get_child_by_name(dn, cfg_name);
+	if (!mode_dn) {
+		dev_warn(&pdev->dev, "no such device node '%s', "
+				"fallback to standard setup\n", cfg_name);
+		mode_dn = dn;
+	}
+
+	phy_node = of_parse_phandle(mode_dn, "phy", 0);
 	if (!phy_node) {
-		if (!of_phy_is_fixed_link(dn)) {
+		if (!of_phy_is_fixed_link(mode_dn)) {
 			dev_err(&pdev->dev, "no PHY specified\n");
 			return -ENODEV;
 		}
 
-		err = of_phy_register_fixed_link(dn);
+		err = of_phy_register_fixed_link(mode_dn);
 		if (err < 0) {
 			dev_err(&pdev->dev, "cannot register fixed PHY\n");
 			return -ENODEV;
@@ -3015,10 +3024,10 @@ static int mvneta_prepare_phy(struct platform_device *pdev)
 		/* In the case of a fixed PHY, the DT node associated
 		 * to the PHY is the Ethernet MAC DT node.
 		 */
-		phy_node = of_node_get(dn);
+		phy_node = of_node_get(mode_dn);
 	}
 
-	phy_mode = of_get_phy_mode(dn);
+	phy_mode = of_get_phy_mode(mode_dn);
 	if (phy_mode < 0) {
 		dev_err(&pdev->dev, "incorrect phy-mode\n");
 		err = -EINVAL;
@@ -3028,7 +3037,7 @@ static int mvneta_prepare_phy(struct platform_device *pdev)
 	pp->phy_node = phy_node;
 	pp->phy_interface = phy_mode;
 
-	err = of_property_read_string(dn, "managed", &managed);
+	err = of_property_read_string(mode_dn, "managed", &managed);
 	pp->use_inband_status = (err == 0 &&
 				 strcmp(managed, "in-band-status") == 0);
 	pp->cpu_notifier.notifier_call = mvneta_percpu_notifier;
@@ -3040,7 +3049,7 @@ static int mvneta_prepare_phy(struct platform_device *pdev)
 	}
 
 	if (pp->use_inband_status) {
-		struct phy_device *phy = of_phy_find_device(dn);
+		struct phy_device *phy = of_phy_find_device(mode_dn);
 
 		mvneta_fixed_link_update(pp, phy);
 

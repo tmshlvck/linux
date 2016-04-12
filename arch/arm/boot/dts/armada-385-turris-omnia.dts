@@ -175,16 +175,21 @@
 
 			ethernet@34000 {
 				status = "okay";
-				phy-mode = "sgmii";
-			/*	managed = "in-band-status";
+ 
+				phy-def {
+					phy-mode = "sgmii";
+					phy = <&phy1>;
+ 				};
 
-				fixed-link {
-					speed = <1000>;
-					full-duplex;
+				phy-sfp {
+					phy-mode = "sgmii";
+					managed = "no";
+ 
+					fixed-link {
+						speed = <1000>;
+						full-duplex;
+					};
 				};
-			*/
-
-				phy = <&phy1>;
 			};
 
 			sdhci@d8000 {
