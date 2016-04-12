@@ -390,6 +390,7 @@ struct mvneta_port {
 	u64 ethtool_stats[ARRAY_SIZE(mvneta_statistics)];
 
 	u32 indir[MVNETA_RSS_LU_TABLE_SIZE];
+	char phy_select[32];
 };
 
 /* The mvneta_tx_desc and mvneta_rx_desc structures describe the
@@ -2986,6 +2987,34 @@ static int mvneta_percpu_notifier(struct notifier_block *nfb,
 /** Forward declaration for mvneta_prepare_phy */
 static int mvneta_port_power_up(struct mvneta_port *pp, int phy_mode);
 
+static ssize_t phy_select_show(struct device *d,
+		struct device_attribute *attr, char *buf)
+{
+	struct mvneta_port *pp = netdev_priv(to_net_dev(d));
+	return scnprintf(buf, PAGE_SIZE, "%s", pp->phy_select);
+}
+
+static ssize_t phy_select_store(struct device *d,
+		struct device_attribute *attr, const char *buf)
+{
+	struct platform_device *pdev = to_platform_device(d->parent);
+	struct mvneta_port *pp = netdev_priv(to_net_dev(d));
+
+	/* prevent reading unwanted nodes */
+	if (strncmp(buf, "phy-", 4)) {
+		dev_err(&pdev->dev, "value must start with prefix 'phy-'\n");
+		return -EINVAL;
+	}
+
+	if (!of_get_child_by_name(pdev->dev.of_node, buf)) {
+		dev_err(&pdev->dev, "no such phy '%s' available\n", buf);
+		return -EINVAL;
+	}
+
+	return scnprintf(pp->phy_select, sizeof(pp->phy_select), "%s", buf);
+}
+DEVICE_ATTR_RW(phy_select);
+
 static int mvneta_prepare_phy(struct platform_device *pdev)
 {
 	struct device_node *dn = pdev->dev.of_node;
@@ -2993,7 +3022,6 @@ static int mvneta_prepare_phy(struct platform_device *pdev)
 	struct mvneta_port *pp;
 	struct device_node *mode_dn;
 	struct device_node *phy_node;
-	const char *cfg_name = "phy-def";
 	const char *managed;
 	int phy_mode;
 	int err;
@@ -3001,10 +3029,11 @@ static int mvneta_prepare_phy(struct platform_device *pdev)
 	dev = platform_get_drvdata(pdev);
 	pp = netdev_priv(dev);
 
-	mode_dn = of_get_child_by_name(dn, cfg_name);
+	mode_dn = of_get_child_by_name(dn, pp->phy_select);
 	if (!mode_dn) {
 		dev_warn(&pdev->dev, "no such device node '%s', "
-				"fallback to standard setup\n", cfg_name);
+				"fallback to standard setup\n",
+				pp->phy_select);
 		mode_dn = dn;
 	}
 
@@ -3664,6 +3693,9 @@ static int mvneta_probe(struct platform_device *pdev)
 
 	pp = netdev_priv(dev);
 
+	/* default phy to use */
+	strncpy(pp->phy_select, "phy-def", sizeof(pp->phy_select));
+
 	pp->rxq_def = rxq_def;
 
 	pp->indir[0] = rxq_def;
@@ -3764,9 +3796,17 @@ static int mvneta_probe(struct platform_device *pdev)
 	netdev_info(dev, "Using %s mac address %pM\n", mac_from,
 		    dev->dev_addr);
 
+	err = device_create_file(&dev->dev, &dev_attr_phy_select);
+	if (err < 0) {
+		dev_err(&pdev->dev, "failed to create attribute phy_select\n");
+		goto err_netdev;
+	}
+
 	platform_set_drvdata(pdev, pp->dev);
 	return 0;
 
+err_netdev:
+	unregister_netdev(dev);
 err_free_stats:
 	free_percpu(pp->stats);
 err_free_ports:
@@ -3786,6 +3826,7 @@ static int mvneta_remove(struct platform_device *pdev)
 	struct net_device  *dev = platform_get_drvdata(pdev);
 	struct mvneta_port *pp = netdev_priv(dev);
 
+	device_remove_file(&dev->dev, &dev_attr_phy_select);
 	unregister_netdev(dev);
 	clk_disable_unprepare(pp->clk);
 	free_percpu(pp->ports);
