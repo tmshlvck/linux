@@ -1,9 +1,11 @@
+/dts-v1/;
+
 #include <dt-bindings/gpio/gpio.h>
 #include <dt-bindings/input/input.h>
 #include "armada-385.dtsi"
 
 / {
-	model = "Turris Lite";
+	model = "Turris Omnia";
 	compatible = "marvell,armada385","marvell,armada380";
 
 	chosen {
@@ -63,11 +65,10 @@
 						status = "okay";
 
 						/* Config memory */
-					/*	eeprom@54 {
+						eeprom@54 {
 							compatible = "at,24c64";
 							reg = <0x54>;
 						};
-					*/
 
 						/* Additional device: STM-32, address 0x2a, INT on 43. */
       					};
