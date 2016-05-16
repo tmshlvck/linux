@@ -183,7 +183,7 @@
 
 				phy-sfp {
 					phy-mode = "sgmii";
-					managed = "no";
+                                	managed = "1000base-x";
  
 					fixed-link {
 						speed = <1000>;

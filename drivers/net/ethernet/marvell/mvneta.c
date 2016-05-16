@@ -11,6 +11,8 @@
  * warranty of any kind, whether express or implied.
  */
 
+//
+
 #include <linux/kernel.h>
 #include <linux/netdevice.h>
 #include <linux/etherdevice.h>
@@ -33,6 +35,12 @@
 #include <linux/phy.h>
 #include <linux/clk.h>
 #include <linux/cpu.h>
+
+
+#define MVNETA_NONEG 0
+#define MVNETA_INBAND 1
+#define MVNETA_1000BASEX 2
+
 
 /* Registers */
 #define MVNETA_RXQ_CONFIG_REG(q)                (0x1400 + ((q) << 2))
@@ -179,6 +187,7 @@
 #define      MVNETA_GMAC_MAX_RX_SIZE_SHIFT       2
 #define      MVNETA_GMAC_MAX_RX_SIZE_MASK        0x7ffc
 #define      MVNETA_GMAC0_PORT_ENABLE            BIT(0)
+#define      MVNETA_GMAC0_PORT_1000BASE_X        BIT(1)
 #define MVNETA_GMAC_CTRL_2                       0x2c08
 #define      MVNETA_GMAC2_INBAND_AN_ENABLE       BIT(0)
 #define      MVNETA_GMAC2_PCS_ENABLE             BIT(3)
@@ -385,7 +394,7 @@ struct mvneta_port {
 	unsigned int duplex;
 	unsigned int speed;
 	unsigned int tx_csum_limit;
-	unsigned int use_inband_status:1;
+	unsigned int use_inband_status;
 
 	u64 ethtool_stats[ARRAY_SIZE(mvneta_statistics)];
 
@@ -927,6 +936,8 @@ static void mvneta_port_enable(struct mvneta_port *pp)
 	/* Enable port */
 	val = mvreg_read(pp, MVNETA_GMAC_CTRL_0);
 	val |= MVNETA_GMAC0_PORT_ENABLE;
+	if (pp->use_inband_status == MVNETA_1000BASEX)
+		val |= MVNETA_GMAC0_PORT_1000BASE_X;
 	mvreg_write(pp, MVNETA_GMAC_CTRL_0, val);
 }
 
@@ -999,11 +1010,11 @@ static void mvneta_set_other_mcast_table(struct mvneta_port *pp, int queue)
 		mvreg_write(pp, MVNETA_DA_FILT_OTH_MCAST + offset, val);
 }
 
-static void mvneta_set_autoneg(struct mvneta_port *pp, int enable)
+static void mvneta_set_autoneg(struct mvneta_port *pp, int mode)
 {
 	u32 val;
 
-	if (enable) {
+	if (mode == MVNETA_INBAND) {
 		val = mvreg_read(pp, MVNETA_GMAC_AUTONEG_CONFIG);
 		val &= ~(MVNETA_GMAC_FORCE_LINK_PASS |
 			 MVNETA_GMAC_FORCE_LINK_DOWN |
@@ -1020,7 +1031,27 @@ static void mvneta_set_autoneg(struct mvneta_port *pp, int enable)
 		val = mvreg_read(pp, MVNETA_GMAC_CTRL_2);
 		val |= MVNETA_GMAC2_INBAND_AN_ENABLE;
 		mvreg_write(pp, MVNETA_GMAC_CTRL_2, val);
-	} else {
+	} else if (mode == MVNETA_1000BASEX) {
+		val = mvreg_read(pp, MVNETA_GMAC_AUTONEG_CONFIG);
+		val &= ~(MVNETA_GMAC_FORCE_LINK_PASS |
+			MVNETA_GMAC_FORCE_LINK_DOWN |
+			MVNETA_GMAC_AN_FLOW_CTRL_EN |
+			MVNETA_GMAC_AN_SPEED_EN | 
+			MVNETA_GMAC_AN_DUPLEX_EN);
+		val |= MVNETA_GMAC_INBAND_AN_ENABLE |
+			MVNETA_GMAC_CONFIG_MII_SPEED |
+			MVNETA_GMAC_CONFIG_GMII_SPEED |
+			MVNETA_GMAC_CONFIG_FULL_DUPLEX;
+		mvreg_write(pp, MVNETA_GMAC_AUTONEG_CONFIG, val);
+
+		val = mvreg_read(pp, MVNETA_GMAC_CLOCK_DIVIDER);
+		val |= MVNETA_GMAC_1MS_CLOCK_ENABLE;
+		mvreg_write(pp, MVNETA_GMAC_CLOCK_DIVIDER, val);
+
+		val = mvreg_read(pp, MVNETA_GMAC_CTRL_2);
+		val |= MVNETA_GMAC2_INBAND_AN_ENABLE;
+		mvreg_write(pp, MVNETA_GMAC_CTRL_2, val);
+	} else { /* No neg */
 		val = mvreg_read(pp, MVNETA_GMAC_AUTONEG_CONFIG);
 		val &= ~(MVNETA_GMAC_INBAND_AN_ENABLE |
 		       MVNETA_GMAC_AN_SPEED_EN |
@@ -2559,6 +2590,9 @@ static void mvneta_start_dev(struct mvneta_port *pp)
 	mvneta_max_rx_size_set(pp, pp->pkt_size);
 	mvneta_txq_max_tx_size_set(pp, pp->pkt_size);
 
+	/* Reset autoneg based on settings of phy */
+	mvneta_set_autoneg(pp, pp->use_inband_status);
+
 	/* start the Rx/Tx activity */
 	mvneta_port_enable(pp);
 
@@ -3013,7 +3047,7 @@ static ssize_t phy_select_store(struct device *d,
 
 	return scnprintf(pp->phy_select, sizeof(pp->phy_select), "%s", buf);
 }
-DEVICE_ATTR_RW(phy_select);
+static DEVICE_ATTR_RW(phy_select);
 
 static int mvneta_prepare_phy(struct platform_device *pdev)
 {
@@ -3025,16 +3059,19 @@ static int mvneta_prepare_phy(struct platform_device *pdev)
 	const char *managed;
 	int phy_mode;
 	int err;
+	bool has_mode_dn = false;
 
 	dev = platform_get_drvdata(pdev);
 	pp = netdev_priv(dev);
 
 	mode_dn = of_get_child_by_name(dn, pp->phy_select);
 	if (!mode_dn) {
-		dev_warn(&pdev->dev, "no such device node '%s', "
+		dev_info(&pdev->dev, "no such device node '%s', "
 				"fallback to standard setup\n",
 				pp->phy_select);
 		mode_dn = dn;
+	} else {
+		has_mode_dn = true;
 	}
 
 	phy_node = of_parse_phandle(mode_dn, "phy", 0);
@@ -3067,8 +3104,12 @@ static int mvneta_prepare_phy(struct platform_device *pdev)
 	pp->phy_interface = phy_mode;
 
 	err = of_property_read_string(mode_dn, "managed", &managed);
-	pp->use_inband_status = (err == 0 &&
-				 strcmp(managed, "in-band-status") == 0);
+	if (err == 0 && strcmp(managed, "in-band-status") == 0)
+		pp->use_inband_status = MVNETA_INBAND;
+	else if (err == 0 && strcmp(managed, "1000base-x") == 0)
+		pp->use_inband_status = MVNETA_1000BASEX;
+	else
+		pp->use_inband_status = MVNETA_NONEG;
 	pp->cpu_notifier.notifier_call = mvneta_percpu_notifier;
 
 	err = mvneta_port_power_up(pp, phy_mode);
@@ -3084,6 +3125,10 @@ static int mvneta_prepare_phy(struct platform_device *pdev)
 
 		put_device(&phy->mdio.dev);
 	}
+
+	if (has_mode_dn)
+		of_node_put(mode_dn);
+
 
 	return 0;
 
