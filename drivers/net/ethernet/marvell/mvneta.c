@@ -2863,7 +2863,6 @@ static int mvneta_mdio_probe(struct mvneta_port *pp)
 static void mvneta_mdio_remove(struct mvneta_port *pp)
 {
 	phy_disconnect(pp->phy_dev);
-	pp->phy_dev = NULL;
 }
 
 static void mvneta_percpu_enable(void *arg)
@@ -3110,7 +3109,6 @@ static int mvneta_prepare_phy(struct platform_device *pdev)
 		pp->use_inband_status = MVNETA_1000BASEX;
 	else
 		pp->use_inband_status = MVNETA_NONEG;
-	pp->cpu_notifier.notifier_call = mvneta_percpu_notifier;
 
 	err = mvneta_port_power_up(pp, phy_mode);
 	if (err < 0) {
@@ -3129,7 +3127,6 @@ static int mvneta_prepare_phy(struct platform_device *pdev)
 	if (has_mode_dn)
 		of_node_put(mode_dn);
 
-
 	return 0;
 
 err_put_phy_node:
@@ -3145,6 +3142,7 @@ static void mvneta_unprepare_phy(struct platform_device *pdev)
 	dev = platform_get_drvdata(pdev);
 	pp = netdev_priv(dev);
 	of_node_put(pp->phy_node);
+	pp->phy_node = NULL;
 }
 
 static int mvneta_open(struct net_device *dev)
@@ -3192,11 +3190,12 @@ static int mvneta_open(struct net_device *dev)
 		smp_call_function_single(cpu, mvneta_percpu_enable,
 					 pp, true);
 
-
 	/* Register a CPU notifier to handle the case where our CPU
 	 * might be taken offline.
 	 */
+#ifdef CONFIG_HOTPLUG_CPU
 	register_cpu_notifier(&pp->cpu_notifier);
+#endif
 
 	/* In default link is down */
 	netif_carrier_off(pp->dev);
@@ -3231,7 +3230,9 @@ static int mvneta_stop(struct net_device *dev)
 
 	mvneta_stop_dev(pp);
 	mvneta_mdio_remove(pp);
+#ifdef CONFIG_HOTPLUG_CPU
 	unregister_cpu_notifier(&pp->cpu_notifier);
+#endif
 	for_each_present_cpu(cpu)
 		smp_call_function_single(cpu, mvneta_percpu_disable, pp, true);
 	free_percpu_irq(dev->irq, pp->ports);
@@ -3740,6 +3741,8 @@ static int mvneta_probe(struct platform_device *pdev)
 
 	/* default phy to use */
 	strncpy(pp->phy_select, "phy-def", sizeof(pp->phy_select));
+
+	pp->cpu_notifier.notifier_call = mvneta_percpu_notifier;
 
 	pp->rxq_def = rxq_def;
 
