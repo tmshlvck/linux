@@ -3028,7 +3028,7 @@ static ssize_t phy_select_show(struct device *d,
 }
 
 static ssize_t phy_select_store(struct device *d,
-		struct device_attribute *attr, const char *buf)
+		struct device_attribute *attr, const char *buf, size_t count)
 {
 	struct platform_device *pdev = to_platform_device(d->parent);
 	struct mvneta_port *pp = netdev_priv(to_net_dev(d));
@@ -3065,7 +3065,7 @@ static int mvneta_prepare_phy(struct platform_device *pdev)
 
 	mode_dn = of_get_child_by_name(dn, pp->phy_select);
 	if (!mode_dn) {
-		dev_info(&pdev->dev, "no such device node '%s', "
+		dev_dbg(&pdev->dev, "no such device node '%s', "
 				"fallback to standard setup\n",
 				pp->phy_select);
 		mode_dn = dn;
