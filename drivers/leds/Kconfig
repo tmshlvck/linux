@@ -568,6 +568,13 @@ config LEDS_SEAD3
 	  This driver can also be built as a module. If so the module
 	  will be called leds-sead3.
 
+config LEDS_OMNIA
+	tristate "LED support for the Turris Omnia board"
+	depends on LEDS_CLASS
+	help
+	  Say Y here to include support for the LED driver on Turris Omnia
+	  board.
+
 comment "LED driver for blink(1) USB RGB LED is under Special HID drivers (HID_THINGM)"
 
 config LEDS_BLINKM
