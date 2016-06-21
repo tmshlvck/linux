@@ -71,9 +71,9 @@
 						};
 
 						/* Additional device: STM-32, address 0x2a, INT on 43. */
-						leds@2a {
+						leds@2b {
 							compatible = "turris-leds,omnia";
-							reg = <0x2a>;
+							reg = <0x2b>;
 
 							#address-cells = <1>;
 							#size-cells = <0>;
