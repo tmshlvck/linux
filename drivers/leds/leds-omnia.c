@@ -3,22 +3,9 @@
  *
  * Author: Tomas Hlavacek <tmshlvck@gmail.com>
  *
- * This file is subject to the terms and conditions of version 2 of
- * the GNU General Public License.  See the file COPYING in the main
- * directory of this archive for more details.
- *
- * LED driver for the PCA9633 I2C LED driver (7-bit slave address 0x62)
- * LED driver for the PCA9634/5 I2C LED driver (7-bit slave address set by hw.)
- *
- * Note that hardware blinking violates the leds infrastructure driver
- * interface since the hardware only supports blinking all LEDs with the
- * same delay_on/delay_off rates.  That is, only the LEDs that are set to
- * blink will actually blink but all LEDs that are set to blink will blink
- * in identical fashion.  The delay_on/delay_off values of the last LED
- * that is set to blink will be used for all of the blinking LEDs.
- * Hardware blinking is disabled by default but can be enabled by setting
- * the 'blink_type' member in the platform_data struct to 'PCA963X_HW_BLINK'
- * or by adding the 'nxp,hw-blink' property to the DTS.
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation. 
  */
 
 #include <linux/module.h>
@@ -30,6 +17,16 @@
 #include <linux/i2c.h>
 #include <linux/slab.h>
 #include <linux/of.h>
+
+#define N_LEDS 12
+
+#define LED_AUTONOMOUS_ADDR 3
+#define LED_ONOFF_ADDR 4
+#define LED_COLOR_ADDR 5
+#define GLOB_BRIGHTNESS_READ 8
+#define GLOB_BRIGHTNESS_WRITE 7
+
+
 
 struct omnia_platform_data {
         struct led_platform_data leds;
@@ -47,8 +44,6 @@ struct omnia_led_mcu {
 	struct omnia_led *leds;
 };
 
-#define N_LEDS 12
-
 struct omnia_led {
 	struct omnia_led_mcu *chip;
 	struct led_classdev led_cdev;
@@ -60,13 +55,6 @@ struct omnia_led {
 	u8 g;
 	u8 b;
 };
-
-
-#define LED_AUTONOMOUS_ADDR 3
-#define LED_ONOFF_ADDR 4
-#define LED_COLOR_ADDR 5
-#define GLOB_BRIGHTNESS_READ 8
-#define GLOB_BRIGHTNESS_WRITE 7
 
 static int omnia_led_brightness_set(struct omnia_led *led,
 				enum led_brightness brightness)
@@ -153,9 +141,6 @@ static int omnia_led_color_set(struct omnia_led *led, u8 r, u8 g, u8 b)
 	mutex_unlock(&led->chip->mutex);
 	return -(ret<=0);
 }
-
-
-
 
 static int omnia_led_set(struct led_classdev *led_cdev,
 	enum led_brightness value)
