@@ -18,7 +18,8 @@
 #include <linux/slab.h>
 #include <linux/of.h>
 
-#define N_LEDS 12
+#define MAX_LEDS 13
+#define ALL_LEDS_INDEX 12
 
 #define LED_AUTONOMOUS_ADDR 3
 #define LED_ONOFF_ADDR 4
@@ -47,9 +48,8 @@ struct omnia_led_mcu {
 struct omnia_led {
 	struct omnia_led_mcu *chip;
 	struct led_classdev led_cdev;
-	int led_num; /* 0 .. 11 */
+	int led_num; /* 0 .. 11 + 12=ALL */
 	char name[32];
-	enum led_brightness last_brightness;
 	u8 autonomous;
 	u8 r;
 	u8 g;
@@ -63,13 +63,6 @@ static int omnia_led_brightness_set(struct omnia_led *led,
 
 	mutex_lock(&led->chip->mutex);
 
-	if (led->last_brightness == brightness) {
-		mutex_unlock(&led->chip->mutex);
-		return 0;
-	}
-
-	led->last_brightness = brightness;
-
 	ret = i2c_smbus_write_byte_data(led->chip->client, LED_ONOFF_ADDR,
 			(led->led_num | ((brightness != LED_OFF)<<4)));
 
@@ -79,7 +72,7 @@ static int omnia_led_brightness_set(struct omnia_led *led,
 
 static int omnia_led_autonomous_set(struct omnia_led *led, int autonomous)
 {
-	int ret;
+	int ret, i;
 
 	mutex_lock(&led->chip->mutex);
 
@@ -89,6 +82,11 @@ static int omnia_led_autonomous_set(struct omnia_led *led, int autonomous)
 	}
 
 	led->autonomous = (autonomous != 0);
+
+	if (led->led_num == ALL_LEDS_INDEX) {
+		for (i=0; i<(MAX_LEDS-1); i++)
+			led->chip->leds[i].autonomous = led->autonomous;
+	}
 
 	ret = i2c_smbus_write_byte_data(led->chip->client, LED_AUTONOMOUS_ADDR,
 			(u8)(led->led_num | ((!led->autonomous) << 4)));
@@ -125,7 +123,7 @@ static int omnia_glob_brightness_get(struct omnia_led_mcu *chip)
 
 static int omnia_led_color_set(struct omnia_led *led, u8 r, u8 g, u8 b)
 {
-	int ret;
+	int ret, i;
 	u8 buf[5];
 
 	buf[0] = LED_COLOR_ADDR;
@@ -137,6 +135,14 @@ static int omnia_led_color_set(struct omnia_led *led, u8 r, u8 g, u8 b)
 	mutex_lock(&led->chip->mutex);
 
 	ret = i2c_master_send(led->chip->client, buf, 5);
+
+	if (led->led_num == ALL_LEDS_INDEX) {
+		for (i=0; i<(MAX_LEDS-1); i++) {
+			led->chip->leds[i].r = led->r;
+			led->chip->leds[i].g = led->g;
+			led->chip->leds[i].b = led->b;
+		}
+	}
 
 	mutex_unlock(&led->chip->mutex);
 	return -(ret<=0);
@@ -161,11 +167,11 @@ omnia_dt_init(struct i2c_client *client)
 	int count;
 
 	count = of_get_child_count(np);
-	if (!count || count > N_LEDS)
+	if (!count || count > MAX_LEDS)
 		return ERR_PTR(-ENODEV);
 
 	leds = devm_kzalloc(&client->dev,
-			sizeof(struct led_info) * N_LEDS, GFP_KERNEL);
+			sizeof(struct led_info) * MAX_LEDS, GFP_KERNEL);
 	if (!leds)
 		return ERR_PTR(-ENOMEM);
 
@@ -174,7 +180,7 @@ omnia_dt_init(struct i2c_client *client)
 		int res;
 
 		res = of_property_read_u32(child, "reg", &reg);
-		if ((res != 0) || (reg >= N_LEDS))
+		if ((res != 0) || (reg >= MAX_LEDS))
 			continue;
 		leds[reg].name =
 			of_get_property(child, "label", NULL) ? : child->name;
@@ -187,7 +193,7 @@ omnia_dt_init(struct i2c_client *client)
 		return ERR_PTR(-ENOMEM);
 
 	pdata->leds.leds = leds;
-	pdata->leds.num_leds = N_LEDS;
+	pdata->leds.num_leds = MAX_LEDS;
 
 	return pdata;
 }
@@ -312,7 +318,7 @@ static int omnia_probe(struct i2c_client *client,
 				GFP_KERNEL);
 	if (!chip)
 		return -ENOMEM;
-	leds = devm_kzalloc(&client->dev, N_LEDS * sizeof(*leds),
+	leds = devm_kzalloc(&client->dev, MAX_LEDS * sizeof(*leds),
 				GFP_KERNEL);
 	if (!leds)
 		return -ENOMEM;
@@ -323,11 +329,7 @@ static int omnia_probe(struct i2c_client *client,
 	chip->client = client;
 	chip->leds = leds;
 
-	for (i = 0; i < N_LEDS; i++) {
-		leds[i].r = 255;
-		leds[i].g = 255;
-		leds[i].b = 255;
-		leds[i].autonomous = 0;
+	for (i = 0; i < MAX_LEDS; i++) {
 		leds[i].led_num = i;
 		leds[i].chip = chip;
 
@@ -369,10 +371,17 @@ static int omnia_probe(struct i2c_client *client,
 			goto exit;
 		}
 
-
-
-		/* Set AUTO for all LEDs by default*/
+		/* Set AUTO for all LEDs by default */
+		leds[i].autonomous = 0;
 		omnia_led_autonomous_set(&leds[i], 1);
+
+		/* Set brightness to LED_OFF by default */
+		omnia_led_brightness_set(&leds[i], LED_OFF);
+
+		/* MCU default color is white */
+		leds[i].r = 255;
+		leds[i].g = 255;
+		leds[i].b = 255;
 	}
 
 	err = device_create_file(&client->dev, &dev_attr_global_brightness);
@@ -405,7 +414,7 @@ static int omnia_remove(struct i2c_client *client)
 
 	device_remove_file(&client->dev, &dev_attr_global_brightness);
 
-	for (i = 0; i < N_LEDS; i++) {
+	for (i = 0; i < MAX_LEDS; i++) {
 		device_remove_file(chip->leds[i].led_cdev.dev,
 			&dev_attr_color);
 		device_remove_file(chip->leds[i].led_cdev.dev,

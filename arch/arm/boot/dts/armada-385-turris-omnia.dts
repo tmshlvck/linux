@@ -137,6 +137,11 @@
 								label = "power";
 								reg = <0xb>;
 							};
+
+							led12 {
+								label = "all";
+								reg = <0xc>;
+							};
 						};
       					};
 
