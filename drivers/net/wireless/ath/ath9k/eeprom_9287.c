@@ -750,7 +750,7 @@ static void ath9k_hw_ar9287_set_txpower(struct ath_hw *ah,
 
 	regulatory->max_power_level = 0;
 	for (i = 0; i < ARRAY_SIZE(ratesArray); i++) {
-		if (ratesArray[i] > MAX_RATE_POWER)
+/*		if (ratesArray[i] > MAX_RATE_POWER)*/
 			ratesArray[i] = MAX_RATE_POWER;
 
 		if (ratesArray[i] > regulatory->max_power_level)
