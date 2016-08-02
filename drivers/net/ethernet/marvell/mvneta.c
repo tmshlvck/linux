@@ -400,7 +400,6 @@ struct mvneta_port {
 
 	u32 indir[MVNETA_RSS_LU_TABLE_SIZE];
 	char phy_select[32];
-	int fixedphy_init;
 };
 
 /* The mvneta_tx_desc and mvneta_rx_desc structures describe the
@@ -3081,13 +3080,12 @@ static int mvneta_prepare_phy(struct platform_device *pdev)
 			return -ENODEV;
 		}
 
-		if (!pp->fixedphy_init) {
+		if (!of_phy_find_device(mode_dn)) {
 			err = of_phy_register_fixed_link(mode_dn);
 			if (err < 0) {
 				dev_err(&pdev->dev, "cannot register fixed PHY\n");
 				return -ENODEV;
 			}
-			pp->fixedphy_init = 1;
 		}
 
 		/* In the case of a fixed PHY, the DT node associated
@@ -3745,7 +3743,6 @@ static int mvneta_probe(struct platform_device *pdev)
 
 	/* default phy to use */
 	strncpy(pp->phy_select, "phy-def", sizeof(pp->phy_select));
-	pp->fixedphy_init = 0;
 
 	pp->cpu_notifier.notifier_call = mvneta_percpu_notifier;
 
