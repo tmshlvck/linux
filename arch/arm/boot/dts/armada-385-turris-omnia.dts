@@ -345,6 +345,18 @@
 		};
 	};
 
+	phy-sfp-noneg {
+		phy-mode = "sgmii";
+		managed = "1000base-x-noneg";
+
+		fixed-link {
+			speed = <1000>;
+			full-duplex;
+		};
+	};
+
+
+
 	phy-sgmii-sfp {
 		phy-mode = "sgmii";
 		managed = "in-band-status";

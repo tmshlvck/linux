@@ -40,6 +40,7 @@
 #define MVNETA_NONEG 0
 #define MVNETA_INBAND 1
 #define MVNETA_1000BASEX 2
+#define MVNETA_1000BASEX_NONEG 3
 
 
 /* Registers */
@@ -936,7 +937,8 @@ static void mvneta_port_enable(struct mvneta_port *pp)
 	/* Enable port */
 	val = mvreg_read(pp, MVNETA_GMAC_CTRL_0);
 	val |= MVNETA_GMAC0_PORT_ENABLE;
-	if (pp->use_inband_status == MVNETA_1000BASEX)
+	if ((pp->use_inband_status == MVNETA_1000BASEX) ||
+		(pp->use_inband_status == MVNETA_1000BASEX_NONEG))
 		val |= MVNETA_GMAC0_PORT_1000BASE_X;
 	mvreg_write(pp, MVNETA_GMAC_CTRL_0, val);
 }
@@ -3109,6 +3111,8 @@ static int mvneta_prepare_phy(struct platform_device *pdev)
 		pp->use_inband_status = MVNETA_INBAND;
 	else if (err == 0 && strcmp(managed, "1000base-x") == 0)
 		pp->use_inband_status = MVNETA_1000BASEX;
+	else if (err == 0 && strcmp(managed, "1000base-x-noneg") == 0)
+		pp->use_inband_status = MVNETA_1000BASEX_NONEG;
 	else
 		pp->use_inband_status = MVNETA_NONEG;
 
