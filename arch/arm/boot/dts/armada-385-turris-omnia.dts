@@ -355,9 +355,7 @@
 		};
 	};
 
-
-
-	phy-sgmii-sfp {
+	phy-sfp-sgmii {
 		phy-mode = "sgmii";
 		managed = "in-band-status";
 
