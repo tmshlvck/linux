@@ -940,6 +940,8 @@ static void mvneta_port_enable(struct mvneta_port *pp)
 	if ((pp->use_inband_status == MVNETA_1000BASEX) ||
 		(pp->use_inband_status == MVNETA_1000BASEX_NONEG))
 		val |= MVNETA_GMAC0_PORT_1000BASE_X;
+	else
+		val &= ~MVNETA_GMAC0_PORT_1000BASE_X;
 	mvreg_write(pp, MVNETA_GMAC_CTRL_0, val);
 }
 
@@ -1026,10 +1028,6 @@ static void mvneta_set_autoneg(struct mvneta_port *pp, int mode)
 		       MVNETA_GMAC_AN_DUPLEX_EN;
 		mvreg_write(pp, MVNETA_GMAC_AUTONEG_CONFIG, val);
 
-		val = mvreg_read(pp, MVNETA_GMAC_CLOCK_DIVIDER);
-		val |= MVNETA_GMAC_1MS_CLOCK_ENABLE;
-		mvreg_write(pp, MVNETA_GMAC_CLOCK_DIVIDER, val);
-
 		val = mvreg_read(pp, MVNETA_GMAC_CTRL_2);
 		val |= MVNETA_GMAC2_INBAND_AN_ENABLE;
 		mvreg_write(pp, MVNETA_GMAC_CTRL_2, val);
@@ -1046,28 +1044,28 @@ static void mvneta_set_autoneg(struct mvneta_port *pp, int mode)
 			MVNETA_GMAC_CONFIG_FULL_DUPLEX;
 		mvreg_write(pp, MVNETA_GMAC_AUTONEG_CONFIG, val);
 
-		val = mvreg_read(pp, MVNETA_GMAC_CLOCK_DIVIDER);
-		val |= MVNETA_GMAC_1MS_CLOCK_ENABLE;
-		mvreg_write(pp, MVNETA_GMAC_CLOCK_DIVIDER, val);
-
 		val = mvreg_read(pp, MVNETA_GMAC_CTRL_2);
 		val |= MVNETA_GMAC2_INBAND_AN_ENABLE;
 		mvreg_write(pp, MVNETA_GMAC_CTRL_2, val);
 	} else { /* No neg */
 		val = mvreg_read(pp, MVNETA_GMAC_AUTONEG_CONFIG);
-		val &= ~(MVNETA_GMAC_INBAND_AN_ENABLE |
-		       MVNETA_GMAC_AN_SPEED_EN |
-		       MVNETA_GMAC_AN_DUPLEX_EN);
+		val &= ~(MVNETA_GMAC_FORCE_LINK_DOWN |
+			 MVNETA_GMAC_INBAND_AN_ENABLE |
+			 MVNETA_GMAC_AN_FLOW_CTRL_EN |
+			 MVNETA_GMAC_AN_SPEED_EN |
+			 MVNETA_GMAC_AN_DUPLEX_EN);
+		val |= MVNETA_GMAC_CONFIG_GMII_SPEED |
+		       MVNETA_GMAC_CONFIG_FULL_DUPLEX;
 		mvreg_write(pp, MVNETA_GMAC_AUTONEG_CONFIG, val);
-
-		val = mvreg_read(pp, MVNETA_GMAC_CLOCK_DIVIDER);
-		val &= ~MVNETA_GMAC_1MS_CLOCK_ENABLE;
-		mvreg_write(pp, MVNETA_GMAC_CLOCK_DIVIDER, val);
 
 		val = mvreg_read(pp, MVNETA_GMAC_CTRL_2);
 		val &= ~MVNETA_GMAC2_INBAND_AN_ENABLE;
 		mvreg_write(pp, MVNETA_GMAC_CTRL_2, val);
 	}
+
+	val = mvreg_read(pp, MVNETA_GMAC_CLOCK_DIVIDER);
+	val |= MVNETA_GMAC_1MS_CLOCK_ENABLE;
+	mvreg_write(pp, MVNETA_GMAC_CLOCK_DIVIDER, val);
 }
 
 /* This method sets defaults to the NETA port:
