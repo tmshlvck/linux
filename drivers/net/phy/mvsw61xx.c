@@ -4,7 +4,7 @@
  * Copyright (c) 2014 Claudio Leite <leitec@staticky.com>
  * Copyright (c) 2014 Nikita Nazarenko <nnazarenko@radiofid.com>
  *
- * Based on code (c) 2008 Felix Fietkau <nbd@openwrt.org>
+ * Based on code (c) 2008 Felix Fietkau <nbd@nbd.name>
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License v2 as published by the
@@ -640,8 +640,25 @@ static void mvsw6176_quirks(struct switch_dev *dev)
 		smisw16(dev, PHY_ADDR(i, PHY_SPECCONTROL_REG), copperspecreg);
 
 		copperreg=smisr16(dev, PHY_ADDR(i, PHY_CONTROL_REG));
-		copperreg&=~PHY_CONTROL_PWR;
+		/* Reset copper PHY. Added to overcome problems with Broadcom and Netgear
+		 * EEE-enabled switches that didn't set the link up after software reset
+		 * of the MVSW.
+		 */
+		smisw16(dev, PHY_ADDR(i, PHY_CONTROL_REG), (copperreg | MV_CONTROL_RESET));
+
+		/* Cleanup after PHY reset: Set autonegotiation, set mode advertisement. */
+		copperreg &= ~PHY_CONTROL_PWR;
+		copperreg |= (MV_CONTROL_ANEG | MV_CONTROL_ANEG_RESTART);
 		smisw16(dev, PHY_ADDR(i, PHY_CONTROL_REG), copperreg);
+
+		reg=smisr16(dev, PHY_ADDR(i, PHY_1000CONTROL_REG));
+		reg |= (MV_1000CONTROL_ADV1000FULL | MV_1000CONTROL_ADV1000HALF);
+		smisw16(dev, PHY_ADDR(i, PHY_1000CONTROL_REG), reg);
+
+		reg=smisr16(dev, PHY_ADDR(i, PHY_ANEG_REG));
+		reg &= ~(MV_ANEG_ADV100T4 | MV_ANEG_ADVPAUSE | MV_ANEG_ADVASYMPAUSE);
+		reg |= (MV_ANEG_ADV10HALF | MV_ANEG_ADV10FULL | MV_ANEG_ADV100HALF | MV_ANEG_ADV100FULL);
+		smisw16(dev, PHY_ADDR(i, PHY_ANEG_REG), reg);
 	}
 
 	/* Enable forwarding (STP mode) */

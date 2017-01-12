@@ -4,7 +4,7 @@
  * Copyright (c) 2014 Claudio Leite <leitec@staticky.com>
  * Copyright (c) 2014 Nikita Nazarenko <nnazarenko@radiofid.com>
  *
- * Based on code (c) 2008 Felix Fietkau <nbd@openwrt.org>
+ * Based on code (c) 2008 Felix Fietkau <nbd@nbd.name>
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License v2 as published by the
@@ -184,7 +184,25 @@ enum {
 enum {
 	MV_CONTROL_RESET		= (1 << 15),
 	MV_CONTROL_PPU_ENABLE		= (1 << 14),
+	MV_CONTROL_ANEG			= (1 << 12),
+	MV_CONTROL_ANEG_RESTART		= (1 << 9),
 };
+
+enum {
+	MV_1000CONTROL_ADV1000FULL	= (1 << 9),
+	MV_1000CONTROL_ADV1000HALF	= (1 << 8),
+};
+
+enum {
+	MV_ANEG_ADV10HALF		= (1 << 5),
+	MV_ANEG_ADV10FULL		= (1 << 6),
+	MV_ANEG_ADV100HALF		= (1 << 7),
+	MV_ANEG_ADV100FULL		= (1 << 8),
+	MV_ANEG_ADV100T4		= (1 << 9),
+	MV_ANEG_ADVPAUSE		= (1 << 10),
+	MV_ANEG_ADVASYMPAUSE		= (1 << 11),
+};
+
 
 enum {
 	MV_VTUCTL_EGRESS_UNMODIFIED	= (0 << 0),
@@ -232,6 +250,8 @@ enum {
 
 #define PHY_ADDR(_n, _type) _n, _type
 #define PHY_CONTROL_REG 0
+#define PHY_ANEG_REG 4
+#define PHY_1000CONTROL_REG 9
 #define PHY_SPECCONTROL_REG 16
 #define PHY_PAGE_REG 22
 
