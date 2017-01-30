@@ -57,6 +57,17 @@ config W1_MASTER_GPIO
 	  This support is also available as a module.  If so, the module
 	  will be called w1-gpio.
 
+config W1_MASTER_GPIO_CUSTOM
+	tristate "Set 1-wire pin from kernel command-line"
+	depends on W1_MASTER_GPIO
+	help
+	  Say Y here if you want to be able to configure the GPIO pins
+	  used by W1_MASTER_GPIO via kernel command-line or module 
+	  parameters.
+
+	  This support is also available as a module.  If so, the module
+	  will be called w1-gpio-custom.ko.
+
 config HDQ_MASTER_OMAP
 	tristate "OMAP HDQ driver"
 	depends on ARCH_OMAP
