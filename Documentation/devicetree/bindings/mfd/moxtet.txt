@@ -1,0 +1,36 @@
+Turris Mox module configuration bus (over SPI)
+
+Required properties:
+ - compatible		: Should be "cznic,moxtet".
+ - #address-cells	: Has to be 1
+ - #size-cells		: Has to be 0
+For other required and optional properties of SPI slave
+nodes please refer to ../spi/spi-bus.txt.
+
+Required properties of subnodes:
+ - reg			: Should be position on the Moxtet bus
+ - moxtet,id		: Should be ID of the Moxtet device connected
+
+The driver finds the devices connected to the bus by itself, but it may be
+needed to reference some of them from other parts of the device tree. In that
+case the devices can be defined as subnodes of the moxtet node.
+
+Example:
+
+	moxtet@1 {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		compatible = "cznic,moxtet";
+		reg = <1>;
+		spi-max-frequency = <1000000>;
+		spi-cpol;
+		spi-cpha;
+
+		moxtet_sfp: moxtet-sfp@0 {
+			compatible = "cznic,moxtet-sfp";
+			gpio-controller;
+			#gpio-cells;
+			reg = <0>;
+			moxtet,id = <1>;
+		}
+	};
