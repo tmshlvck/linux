@@ -1496,6 +1496,7 @@ M:	Marek Behun <marek.behun@nic.cz>
 W:	http://mox.turris.cz
 S:	Maintained
 F:	include/mfd/moxtet.h
+F:	drivers/gpio/gpio-moxtet.c
 F:	drivers/mfd/moxtet.c
 
 ARM/EBSA110 MACHINE SUPPORT
