@@ -90,6 +90,12 @@
 		enable-active-high;
 	};
 
+	sdhci1_pwrseq: sdhci1_pwrseq {
+		compatible = "mmc-pwrseq-simple";
+		reset-gpios = <&gpionb 19 GPIO_ACTIVE_HIGH>;
+		status = "okay";
+	};
+
 	sfp: sfp {
 		compatible = "sff,sfp+";
 		i2c-bus = <&i2c0>;
@@ -754,6 +760,7 @@
 	bus-width = <4>;
 	marvell,pad-type = "sd";
 	vqmmc-supply = <&vsdio_reg>;
+	mmc-pwrseq = <&sdhci1_pwrseq>;
 	status = "okay";
 };
 
