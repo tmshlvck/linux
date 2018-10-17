@@ -1,0 +1,6 @@
+CZ.NIC's Turris Mox SOHO router Device Tree Bindings
+----------------------------------------------------
+
+Required root node property:
+
+compatible: must contain "cznic,turris-mox"

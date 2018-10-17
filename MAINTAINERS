@@ -1495,6 +1495,7 @@ ARM/CZ.NIC TURRIS MOX SUPPORT
 M:	Marek Behun <marek.behun@nic.cz>
 W:	http://mox.turris.cz
 S:	Maintained
+F:	arch/arm64/boot/dts/marvell/armada-3720-turris-mox.dts
 F:	include/mfd/moxtet.h
 F:	drivers/gpio/gpio-moxtet.c
 F:	drivers/mfd/moxtet.c
