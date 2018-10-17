@@ -759,8 +759,8 @@
 	non-removable;
 	bus-width = <4>;
 	marvell,pad-type = "sd";
-	vqmmc-supply = <&vsdio_reg>;
 	mmc-pwrseq = <&sdhci1_pwrseq>;
+	vqmmc-supply = <&vsdio_reg>;
 	status = "okay";
 };
 
