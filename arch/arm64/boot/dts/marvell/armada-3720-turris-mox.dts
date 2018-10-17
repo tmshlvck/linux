@@ -761,6 +761,7 @@
 	marvell,pad-type = "sd";
 	mmc-pwrseq = <&sdhci1_pwrseq>;
 	vqmmc-supply = <&vsdio_reg>;
+	mmc-pwrseq = <&sdhci1_pwrseq>;
 	status = "okay";
 };
 
