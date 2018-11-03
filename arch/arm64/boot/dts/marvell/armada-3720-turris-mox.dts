@@ -97,10 +97,10 @@
 	};
 
 	sfp: sfp {
-		compatible = "sff,sfp+";
+		compatible = "sff,sfp";
 		i2c-bus = <&i2c0>;
 		los-gpio = <&moxtet_sfp 0 GPIO_ACTIVE_HIGH>;
-		tx-fault-gpio = <&moxtet_sfp 1 GPIO_ACTIVE_HIGH>;
+/*		tx-fault-gpio = <&moxtet_sfp 1 GPIO_ACTIVE_HIGH>; */
 		mod-def0-gpio = <&moxtet_sfp 2 GPIO_ACTIVE_LOW>;
 		tx-disable-gpio = <&moxtet_sfp 3 GPIO_ACTIVE_HIGH>;
 		rate-select0-gpio = <&moxtet_sfp 4 GPIO_ACTIVE_HIGH>;
