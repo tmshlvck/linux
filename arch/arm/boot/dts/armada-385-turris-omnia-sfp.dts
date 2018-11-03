@@ -86,7 +86,7 @@
 	sfp: sfp {
 		compatible = "sff,sfp";
 		i2c-bus = <&i2csfp>;
-		tx-fault-gpios = <&pcawan 0 GPIO_ACTIVE_HIGH>;
+/*		tx-fault-gpios = <&pcawan 0 GPIO_ACTIVE_HIGH>; */
 		tx-disable-gpios = <&pcawan 1 GPIO_ACTIVE_HIGH>;
 		rate-select0-gpios = <&pcawan 2 GPIO_ACTIVE_HIGH>;
 		los-gpios = <&pcawan 3 GPIO_ACTIVE_HIGH>;
