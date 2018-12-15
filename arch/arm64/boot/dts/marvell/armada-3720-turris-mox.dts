@@ -828,3 +828,8 @@
 	status = "okay";
 	usb-phy = <&usb3_phy>;
 };
+
+&usb2 {
+	status = "okay";
+};
+
