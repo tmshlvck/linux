@@ -76,6 +76,14 @@
 		enable-active-high;
 	};
 
+	vsdc_vdd_reg: vsdc_vdd_reg {
+                compatible = "regulator-fixed";
+                regulator-name = "vsdc_vdd";
+                regulator-min-microvolt = <3300000>;
+                regulator-max-microvolt = <3300000>;
+                regulator-boot-on;
+        };
+
 	vsdio_reg: vsdio_reg {
 		compatible = "regulator-gpio";
 		regulator-name = "vsdio";
@@ -89,6 +97,14 @@
 			  3300000 0x0>;
 		enable-active-high;
 	};
+
+	vsdio_vdd_reg: vsdio_vdd_reg {
+                compatible = "regulator-fixed";
+                regulator-name = "vsdio_vdd";
+                regulator-min-microvolt = <3300000>;
+                regulator-max-microvolt = <3300000>;
+                regulator-boot-on;
+        };
 
 	sdhci1_pwrseq: sdhci1_pwrseq {
 		compatible = "mmc-pwrseq-simple";
@@ -749,6 +765,7 @@
 	bus-width = <4>;
 	cd-gpios = <&gpionb 10 GPIO_ACTIVE_HIGH>;
 	vqmmc-supply = <&vsdc_reg>;
+	vmmc-supply = <&vsdc_vdd_reg>;
 	marvell,pad-type = "sd";
 	status = "okay";
 };
@@ -760,6 +777,7 @@
 	bus-width = <4>;
 	marvell,pad-type = "sd";
 	vqmmc-supply = <&vsdio_reg>;
+	vmmc-supply = <&vsdio_vdd_reg>;
 	mmc-pwrseq = <&sdhci1_pwrseq>;
 	status = "okay";
 };
