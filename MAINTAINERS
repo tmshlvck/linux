@@ -1483,6 +1483,15 @@ F:	include/mfd/moxtet.h
 F:	drivers/gpio/gpio-moxtet.c
 F:	drivers/mfd/moxtet.c
 
+ARM/CZ.NIC TURRIS MOX SUPPORT
+M:	Marek Behun <marek.behun@nic.cz>
+W:	http://mox.turris.cz
+S:	Maintained
+F:	arch/arm64/boot/dts/marvell/armada-3720-turris-mox.dts
+F:	include/mfd/moxtet.h
+F:	drivers/gpio/gpio-moxtet.c
+F:	drivers/mfd/moxtet.c
+
 ARM/EBSA110 MACHINE SUPPORT
 M:	Russell King <linux@armlinux.org.uk>
 L:	linux-arm-kernel@lists.infradead.org (moderated for non-subscribers)
