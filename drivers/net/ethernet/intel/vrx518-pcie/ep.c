@@ -416,7 +416,7 @@ static int dc_ep_msi_enable(struct pci_dev *pdev, int nvec)
 #if 0
 	err = pci_enable_msi_exact(pdev, nvec);
 #else
-	pci_enable_msi_block(pdev, nvec);
+	pci_alloc_irq_vectors(pdev, 1, nvec, PCI_IRQ_MSI);
 #endif
 	if (err) {
 		ep_dev_err(&pdev->dev,
@@ -661,7 +661,7 @@ static void dc_ep_remove(struct pci_dev *pdev)
 	pci_disable_device(pdev);
 }
 
-static DEFINE_PCI_DEVICE_TABLE(dc_ep_id_table) = {
+const struct pci_device_id dc_ep_id_table[] = {
 	{0x8086, 0x09a9, PCI_ANY_ID, PCI_ANY_ID}, /* VRX518 */
 	{0},
 };
