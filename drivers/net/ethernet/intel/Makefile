@@ -15,3 +15,4 @@ obj-$(CONFIG_IXGB) += ixgb/
 obj-$(CONFIG_I40EVF) += i40evf/
 obj-$(CONFIG_FM10K) += fm10k/
 obj-$(CONFIG_ICE) += ice/
+obj-$(CONFIG_VRX518) += vrx518-pcie/
