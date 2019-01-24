@@ -27,4 +27,4 @@ config TEST
 	  will be called vrx518.  MSI interrupt support is required for
 	  this driver to work correctly.
 
-source "drivers/net/ethernet/intel/vrx518/tc/Kconfig"
+source "drivers/net/ethernet/intel/vrx518-pcie/tc/Kconfig"

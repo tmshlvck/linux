@@ -24,6 +24,7 @@
 #define __TC_MAIN_H__
 
 #include <net/dc_ep.h>
+#include <linux/if_link.h>
 #include "dsl_tc.h"
 
 #define EP_MAX_NUM	(DC_EP_MAX_PEER + 1)

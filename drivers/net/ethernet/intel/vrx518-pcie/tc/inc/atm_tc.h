@@ -118,6 +118,11 @@
 
 #define INQ_QOS_CFG_BASE(off)		fpi_addr(__INQ_QOS_CFG_BASE + (off))
 
+#define ATM_VBR_NRT	ATM_VBR
+#define ATM_VBR_RT	6
+#define ATM_UBR_PLUS	7
+#define ATM_GFR		8
+
 enum {
 	MPOA_TYPE_EOA_WO_FCS	= 0,
 	MPOA_TYPE_EOA_W_FCS	= 1,
@@ -480,8 +485,8 @@ struct atm_priv {
 	struct work_struct oam_work;
 };
 
-extern void (*atm_hook_mpoa_setup)(struct atm_vcc *, int,
-				int, struct net_device *);
+/*extern void (*atm_hook_mpoa_setup)(struct atm_vcc *, int,
+				int, struct net_device *); */
 #if defined(CONFIG_LTQ_OAM) || defined(CONFIG_LTQ_OAM_MODULE)
 extern void ifx_push_oam(unsigned char *);
 #endif

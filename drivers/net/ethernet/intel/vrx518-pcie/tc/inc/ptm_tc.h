@@ -122,6 +122,7 @@ struct ptm_priv {
 	spinlock_t ptm_lock;
 	struct rtnl_link_stats64 stats64;
 	int subif_id;
+	u32 prio_q_map[PTM_PRIO_Q_NUM];
 	u32 outq_map[OUTQ_PNUM];
 };
 

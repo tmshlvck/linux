@@ -38,10 +38,11 @@
 #include <linux/printk.h>
 #include <linux/etherdevice.h>
 #include <linux/workqueue.h>
-#include "inc/dsl_tc.h"
 
+#include "../inc/dsl_tc.h"
 #include "../inc/tc_main.h"
 #include "../inc/reg_addr.h"
+#include "../inc/tc_common.h"
 
 
 #define PMAC_SIZE		8
@@ -498,7 +499,7 @@ static void txin_action(struct tc_priv *priv, struct aca_ring *txin,
 	pr_info("TXIN send txin packet 1 packet\n");
 
 	/* Free skb */
-	dev_kfree_skb_any(skb);
+	//dev_kfree_skb_any(skb);
 
 	/* check txout for testing*/
 	//txout_action(plat_to_tcpriv(), &g_plat_priv->soc_rings.txout);
@@ -700,12 +701,12 @@ static int plat_send(struct net_device *pdev, struct sk_buff *skb,
 }
 
 /* return virtual address */
-static void *plat_mem_alloc(size_t size, enum tc_dir dir)
+static void *plat_mem_alloc(size_t size, enum tc_dir dir, u32 *phyaddr)
 {
 	return kmalloc(size, GFP_KERNEL);
 }
 
-static void plat_mem_free(u32 phy_addr, enum tc_dir dir)
+static void plat_mem_free(dma_addr_t phy_addr, enum tc_dir dir)
 {
 	void *mem;
 
@@ -864,44 +865,44 @@ static int plat_soc_cfg_get(struct soc_cfg *cfg, u32 id)
 	struct plat_priv *priv = g_plat_priv;
 
 	/* TXIN */
-	cfg->txin_dbase = priv->soc_rings.txin.dbase_phymem;
-	cfg->txin_dnum = priv->soc_rings.txin.dnum;
-	cfg->txin_desc_dwsz = DW_SZ(struct dma_desc);
-	cfg->txin_cnt_phyaddr = priv->soc_rings.txin.cnt_phyaddr;
+	cfg->txin.soc_dbase = priv->soc_rings.txin.dbase_phymem;
+	cfg->txin.soc_dnum = priv->soc_rings.txin.dnum;
+	cfg->txin.soc_desc_dwsz = DW_SZ(struct dma_desc);
+	cfg->txin.soc_cnt_phyaddr = priv->soc_rings.txin.cnt_phyaddr;
 	/* TXOUT */
-	cfg->txout_dbase = priv->soc_rings.txout.dbase_phymem;
-	cfg->txout_dnum = priv->soc_rings.txout.dnum;
-	cfg->txout_desc_dwsz = DW_SZ(struct dma_desc);
-	cfg->txout_cnt_phyaddr = priv->soc_rings.txout.cnt_phyaddr;
+	cfg->txout.soc_dbase = priv->soc_rings.txout.dbase_phymem;
+	cfg->txout.soc_dnum = priv->soc_rings.txout.dnum;
+	cfg->txout.soc_desc_dwsz = DW_SZ(struct dma_desc);
+	cfg->txout.soc_cnt_phyaddr = priv->soc_rings.txout.cnt_phyaddr;
 	/* RXOUT */
-	cfg->rxout_dbase = priv->soc_rings.rxout.dbase_phymem;
-	cfg->rxout_dnum = priv->soc_rings.rxout.dnum;
-	cfg->rxout_desc_dwsz = DW_SZ(struct dma_desc);
-	cfg->rxout_cnt_phyaddr = priv->soc_rings.rxout.cnt_phyaddr;
+	cfg->rxout.soc_dbase = priv->soc_rings.rxout.dbase_phymem;
+	cfg->rxout.soc_dnum = priv->soc_rings.rxout.dnum;
+	cfg->rxout.soc_desc_dwsz = DW_SZ(struct dma_desc);
+	cfg->rxout.soc_cnt_phyaddr = priv->soc_rings.rxout.cnt_phyaddr;
 	/* RXIN */
-	cfg->rxin_dbase = priv->soc_rings.rxin.dbase_phymem;
-	cfg->rxin_dnum = priv->soc_rings.rxin.dnum;
-	cfg->rxin_desc_dwsz = DW_SZ(struct dma_desc);
-	cfg->rxin_cnt_phyaddr = priv->soc_rings.rxin.cnt_phyaddr;
+ 	cfg->rxin.soc_dbase = priv->soc_rings.rxin.dbase_phymem;
+	cfg->rxin.soc_dnum = priv->soc_rings.rxin.dnum;
+	cfg->rxin.soc_desc_dwsz = DW_SZ(struct dma_desc);
+	cfg->rxin.soc_cnt_phyaddr = priv->soc_rings.rxin.cnt_phyaddr;
 
 	tc_info(priv->tc_priv, MSG_INIT,
 		"id: %d, txin(0x%x: %d, 0x%x), txout(0x%x: %d, 0x%x), rxin(0x%x: %d, 0x%x), rxout(0x%x: %d, 0x%x)\n",
-		id, cfg->txin_dbase, cfg->txin_dnum, cfg->txin_cnt_phyaddr,
-		cfg->txout_dbase, cfg->txout_dnum, cfg->txout_cnt_phyaddr,
-		cfg->rxin_dbase, cfg->rxout_dnum, cfg->rxin_cnt_phyaddr,
-		cfg->rxout_dbase, cfg->rxout_dnum, cfg->rxout_cnt_phyaddr);
+		id, cfg->txin.soc_dbase, cfg->txin.soc_dnum, cfg->txin.soc_cnt_phyaddr,
+		cfg->txout.soc_dbase, cfg->txout.soc_dnum, cfg->txout.soc_cnt_phyaddr,
+		cfg->rxin.soc_dbase, cfg->rxout.soc_dnum, cfg->rxin.soc_cnt_phyaddr,
+		cfg->rxout.soc_dbase, cfg->rxout.soc_dnum, cfg->rxout.soc_cnt_phyaddr);
 
 	return 0;
 }
 
-static int plat_open(struct net_device *pdev, char *dev_name,
-		int *subif, int flag)
+static int plat_open(struct net_device *pdev, const char *dev_name,
+		int id, int flag)
 {
 	return 0;
 }
 
-static void plat_close(struct net_device *pdev, char *dev_name,
-		int subif, int flag)
+static void plat_close(struct net_device *pdev, const char *dev_name,
+		int flag)
 {
 	return;
 }

@@ -1486,6 +1486,7 @@ enum netdev_priv_flags {
 	IFF_NO_RX_HANDLER		= 1<<26,
 	IFF_FAILOVER			= 1<<27,
 	IFF_FAILOVER_SLAVE		= 1<<28,
+	IFF_PTM_DATAPATH		= 1<<29,
 };
 
 #define IFF_802_1Q_VLAN			IFF_802_1Q_VLAN

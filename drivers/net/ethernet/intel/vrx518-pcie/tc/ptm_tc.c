@@ -38,7 +38,7 @@
 #include <linux/seq_file.h>
 #include <linux/printk.h>
 #include <linux/etherdevice.h>
-#include <net/datapath_proc_api.h>
+//#include <net/datapath_proc_api.h>
 
 #include "inc/tc_main.h"
 #include "inc/reg_addr.h"
@@ -175,7 +175,8 @@ static int ptm_get_qid(struct net_device *dev, struct sk_buff *skb,
 	else
 		prio = 0;
 
-	qid = pq_map_get_queue(&ptm_tc->pqmap, prio);
+	printk("%s prio_q_map hit\n", __func__);
+	qid = ptm_tc->prio_q_map[prio];
 	qid_desc = ptm_tc->subif_id | PTM_DESC_QID(qid);
 
 	return qid_desc;
@@ -205,13 +206,14 @@ static int get_netif_qid_with_pkt(struct sk_buff *skb, void *arg, int is_atm_vcc
 	ptm_tc = netdev_priv(dev);
 
 	/* PPA API needs raw queue id */
-	qid = pq_map_get_queue(&ptm_tc->pqmap, skb->priority);
+	printk("%s prio_q_map hit\n", __func__);
+	qid = ptm_tc->prio_q_map[skb->priority];
 
 	return qid;
 }
 #endif
 
-static struct rtnl_link_stats64 *ptm_get_stats(struct net_device *dev,
+static void ptm_get_stats(struct net_device *dev,
 					struct rtnl_link_stats64 *storage)
 {
 	struct ptm_priv *ptm_tc = netdev_priv(dev);
@@ -220,8 +222,6 @@ static struct rtnl_link_stats64 *ptm_get_stats(struct net_device *dev,
 		memcpy(storage, &ptm_tc->stats64, sizeof(ptm_tc->stats64));
 	else
 		storage->tx_errors += ptm_tc->stats64.tx_errors;
-
-	return storage;
 }
 
 static int ptm_set_mac_address(struct net_device *dev, void *p)
@@ -532,7 +532,7 @@ static int ptm_xmit(struct sk_buff *skb, struct net_device *dev)
 	if (!showtime_stat(ptm_tc->tc_priv))
 		goto PTM_XMIT_DROP;
 
-	if (__skb_put_padto(skb, ETH_ZLEN))
+	if (__skb_put_padto(skb, ETH_ZLEN, true))
 		goto PTM_XMIT_DROP;
 
 	dump_skb_info(ptm_tc->tc_priv, skb, (MSG_TX | MSG_TXDATA));
@@ -1994,24 +1994,38 @@ static void ptm_fw_bonding_init(struct ptm_ep_priv *priv,
 static void ppe_ptm_fw_hw_init(struct ptm_ep_priv *priv,
 				u32 ep_id, int bonding)
 {
+	printk("%s 1\n", __func__);
 	/* Clear PPE SB */
 	ppe_sb_clear(priv);
+	printk("%s 2\n", __func__);
 	/* Clear PDBRAM */
 	pdbram_clear(priv);
+	printk("%s 3\n", __func__);
 
 	ptm_hw_init(priv);
+	printk("%s 4\n", __func__);
 	ptm_fw_init(priv, bonding);
+	printk("%s 5\n", __func__);
 
 	ptm_gen_cfg_init(priv, bonding);
+	printk("%s 6\n", __func__);
 	us_qos_cfg_init(priv);
+	printk("%s 7\n", __func__);
 	ptm_local_desq_cfg_ctxt_init(priv, bonding);
+	printk("%s 8\n", __func__);
 	ptm_erb_init(priv, bonding);
+	printk("%s 9\n", __func__);
 	ptm_ds_pkt_desq_cfg_ctxt_init(priv);
+	printk("%s 10\n", __func__);
 	ptm_fw_bonding_init(priv, ep_id, bonding);
+	printk("%s 11\n", __func__);
 
 	cdma_copy_ch_init(priv, ep_id, bonding);
+	printk("%s 12\n", __func__);
 	ptm_cdma_init(priv);
+	printk("%s 13\n", __func__);
 	ppe_aca_cfg(priv, bonding);
+	printk("%s 14\n", __func__);
 }
 
 /**
@@ -2300,24 +2314,35 @@ static void ptm_tc_hw_fw_init(struct ptm_ep_priv *priv,
 	tc_dbg(priv->tc_priv, MSG_SWITCH, "tc_mode\t\t= %s\n",
 		bonding ? "PTM Bonding" : "PTM Single Line");
 
+	printk("%s 1\n", __func__);
 	ptm_tc = g_ptm_priv;
 	/* Power on Modem component */
+	printk("%s 2\n", __func__);
 	tc_clkon(priv->ep, PMU_PTM);
+	printk("%s 3\n", __func__);
 	/* Reset PPE HW */
+	printk("%s 4\n", __func__);
 	tc_ppe_rst(priv->ep);
+	printk("%s 5\n", __func__);
 	/* Set VRX318 PPE clock 576MHz */
 	tc_ppe_clkset(priv->ep, PPE_CLK_576MHZ);
+	printk("%s 6\n", __func__);
 	/* Clear and disable mailbox */
 	for (i = MBOX_IGU0; i <= MBOX_IGU2; i++) {
 		mbox_set_ier(priv, i, 0);
 		mbox_clr_isr(priv, i, MBOX_MASK(i));
 	}
+	printk("%s 7\n", __func__);
 
 	/* Freeze PP32 */
 	ppe_stop(priv);
+	printk("%s 8\n", __func__);
 	ppe_ptm_fw_hw_init(priv, ep_id, bonding);
+	printk("%s 9\n", __func__);
 	ptm_fw_load(ptm_tc);
+	printk("%s 10\n", __func__);
 	pp32_load(priv, &ptm_tc->fw, 0);
+	printk("%s 11\n", __func__);
 
 	/* init datapath */
 	if (bonding)
@@ -2325,20 +2350,24 @@ static void ptm_tc_hw_fw_init(struct ptm_ep_priv *priv,
 	else
 		drv_name = ptm_drv_name;
 	ptm_datapath_init(priv, drv_name);
+	printk("%s 12\n", __func__);
 
 	/* start hardware */
 	setup_dfe_loopback(priv, priv->dfe_rate);
 	ppe_start(priv);
 	dfe_loopback_linkup(priv);
+	printk("%s 13\n", __func__);
 
 	/* Indicate DSL FW all configuration is ready */
 	/* PPE FW is ready to receive/send packets */
 	tc_stat_indicate(priv, priv->tc_priv->tc_mode, 1);
+	printk("%s 14\n", __func__);
 
 	/* enable mailbox */
 	mbox_set_ier(priv, MBOX_IGU1, MBOX_PKT_RX | MBOX_FRAME_STOP);
 	/* Check if SoC needs PMAC header or not */
 	sb_w32(priv->pmac_header, __PMAC_HDR_INSERT);
+	printk("%s 15\n", __func__);
 
 	tc_info(priv->tc_priv, MSG_SWITCH, "PTM TC init successfully\n");
 	return;
@@ -2577,7 +2606,9 @@ static void ptm_aca_ring_config_init(struct ptm_ep_priv *priv,
 
 static int ptm_ring_init(struct ptm_ep_priv *priv, int id, int bonding)
 {
+	printk("%s 3.1\n", __func__);
 	ptm_aca_ring_config_init(priv, id, bonding);
+	printk("%s 3.2 priv->tc_priv=%px, priv->tc_priv->tc_opsi=%px\n", __func__, priv->tc_priv, priv->tc_priv->tc_ops);
 	return priv->tc_priv->tc_ops.dev_reg(priv->ptm_tc->dev,
 		priv->ptm_tc->dev->name, id, bonding);
 }
@@ -2599,6 +2630,7 @@ int ptm_tc_load(struct tc_priv *tc_priv,
 	struct ptm_ep_priv *priv;
 	int bonding, i;
 
+	printk("%s 1\n", __func__);
 	if (!g_ptm_priv)
 		ptm_dev_init(tc_priv, id, tc_mode);
 
@@ -2611,6 +2643,7 @@ int ptm_tc_load(struct tc_priv *tc_priv,
 	 * 3. aca init
 	 * 4. umt start
 	 */
+	printk("%s 2\n", __func__);
 	bonding = (tc_mode == TC_PTM_BND_MODE);
 	if (!bonding) {
 		priv = tc_ep_priv(id);
@@ -2619,13 +2652,20 @@ int ptm_tc_load(struct tc_priv *tc_priv,
 #else
 		priv->pmac_header = 0;
 #endif
+	printk("%s 3\n", __func__);
 		if (ptm_ring_init(priv, id, bonding))
 			return -1;
+	printk("%s 4.1\n", __func__);
 		ptm_tc_hw_fw_init(priv, id, bonding);
+	printk("%s 4.2\n", __func__);
 		ptm_umt_init(priv);
+	printk("%s 4.3\n", __func__);
 		ptm_aca_init(priv);
+	printk("%s 5.1\n", __func__);
 		ptm_umt_start(priv);
+	printk("%s 5.2\n", __func__);
 		ptm_tc_proc_init(priv);
+	printk("%s 6\n", __func__);
 		ptm_tc->ep_id = id;
 	} else {
 		for (i = 0; i < BOND_MAX; i++) {
@@ -2644,20 +2684,26 @@ int ptm_tc_load(struct tc_priv *tc_priv,
 		}
 	}
 
-	pq_map_init(&ptm_tc->pqmap, 8);
-	pq_map_map_linear(&ptm_tc->pqmap);
+	printk("%s 6\n", __func__);
+	printk("%s prio_q_map hit\n", __func__);
+	for(i = 0; i < PTM_PRIO_Q_NUM; i++)
+		ptm_tc->prio_q_map[i] = i;
 
+	printk("%s 7\n", __func__);
 	tc_priv->priv = ptm_tc;
 	ptm_cb_setup(ptm_tc, 1);
 
+	printk("%s 8\n", __func__);
 	if (priv->tc_priv->tc_ops.subif_reg != NULL)
 		if (priv->tc_priv->tc_ops.subif_reg(ptm_tc->dev,
 			ptm_tc->dev->name, &ptm_tc->subif_id, 0))
 			return -1;
 
+	printk("%s 9\n", __func__);
 	if (priv->tc_priv->tc_ops.disable_us != NULL)
 		priv->tc_priv->tc_ops.disable_us(0);
 
+	printk("%s 10\n", __func__);
 #ifdef CONFIG_SOC_TYPE_XWAY
 	/* Init DMA channel, however not enable yet */
 	/* to make sure that no traffic to fast path */
@@ -2669,11 +2715,13 @@ int ptm_tc_load(struct tc_priv *tc_priv,
 	ppa_drv_get_netif_qid_with_pkt_hook = get_netif_qid_with_pkt;
 #endif
 
+	printk("%s 11\n", __func__);
 	/* Send userspace TC UP message */
 	tc_ntlk_msg_send(tc_priv, 0, PTM_TC, TC_LOADED,
 		(tc_mode == TC_PTM_BND_MODE) ? BONDING_MODE : NON_BONDING_MODE,
 		id);
 
+	printk("%s 12\n", __func__);
 	tc_info(tc_priv, MSG_SWITCH, "PTM TC is successfully loaded\n");
 
 	return 0;
@@ -2949,8 +2997,6 @@ void ptm_tc_unload(enum dsl_tc_mode tc_mode)
 	tc_ntlk_msg_send(ptm_tc->tc_priv, 0, PTM_TC, TC_UNLOADED,
 		(tc_mode == TC_PTM_BND_MODE) ? BONDING_MODE : NON_BONDING_MODE,
 		ptm_tc->ep_id);
-
-	pq_map_release(&ptm_tc->pqmap);
 
 	tc_info(ptm_tc->tc_priv, MSG_SWITCH, "Unload PTM TC successfully!!!\n");
 }

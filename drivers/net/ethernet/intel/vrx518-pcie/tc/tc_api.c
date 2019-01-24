@@ -55,7 +55,7 @@ static const char ppe_fw_name[] = "ppe_fw.bin";
 
 /* TC message genelink family */
 static struct genl_family tc_gnl_family = {
-	.id = GENL_ID_GENERATE,	/* To generate an id for the family*/
+//	.id = GENL_ID_GENERATE,	/* To generate an id for the family*/
 	.hdrsize = 0,
 	.name = TC_FAMILY_NAME,	/*family name, used by userspace application*/
 	.version = 1,		/*version number  */
@@ -339,13 +339,17 @@ static void cdma_ctrl_init(void *priv)
 	struct tc_priv *tcpriv = to_tcpriv(priv);
 
 	/* power up CDMA */
+	printk("%s 1\n", __func__);
 	ep_dev->hw_ops->clk_on(ep_dev, PMU_CDMA);
+	printk("%s 2\n", __func__);
 
 	/* Global software reset CDMA */
 	rw32_mask(priv, 1, 1, CTRL_RST_S, CDMA_CTRL);
+	printk("%s 3\n", __func__);
 	while (tc_r32(CDMA_CTRL) & BIT(CTRL_RST_S) && max_loop > 0)
 		max_loop--;
 
+	printk("%s 4\n", __func__);
 	if (!max_loop) {
 		tc_err(tcpriv, MSG_INIT, "DMA CTRL reset fail!\n");
 		return;
@@ -569,7 +573,7 @@ int tc_ntlk_msg_send(struct tc_priv *priv, int pid, int tc_mode, int tc_action,
 	nla_put_u32(skb, TC_A_LINENO, ln_no);
 
 	genlmsg_end(skb, msg_head);
-	ret = genlmsg_multicast(skb, pid, tc_ml_grp.id, GFP_KERNEL);
+	ret = genlmsg_multicast(&tc_gnl_family, skb, pid, 0, GFP_KERNEL);
 	if (ret) {
 		tc_err(priv, MSG_EVENT, "Sent TC multicast message Fail!\n");
 		goto err1;
@@ -591,7 +595,7 @@ int tc_gentlk_init(struct tc_priv *priv)
 		return ret;
 	}
 
-	ret = genl_register_mc_group(&tc_gnl_family, &tc_ml_grp);
+//	ret = genl_register_mc_group(&tc_gnl_family, &tc_ml_grp);
 	if (ret) {
 		tc_err(priv, MSG_EVENT, "register mc group fail: %i, grp name: %s\n",
 			ret, tc_ml_grp.name);
@@ -605,7 +609,7 @@ int tc_gentlk_init(struct tc_priv *priv)
 void tc_gentlk_exit(void)
 {
 	/* unregister mc groups */
-	genl_unregister_mc_group(&tc_gnl_family, &tc_ml_grp);
+//	genl_unregister_mc_group(&tc_gnl_family, &tc_ml_grp);
 	/*unregister the family*/
 	genl_unregister_family(&tc_gnl_family);
 }
@@ -661,7 +665,7 @@ void dump_skb_info(struct tc_priv *tcpriv, struct sk_buff *skb, u32 msg_type)
 	u32 type;
 
 	type = msg_type & (MSG_TX | MSG_RX);
-	tc_dbg(tcpriv, type,
+/*	tc_dbg(tcpriv, type,
 		"skb: head: 0x%x, data: 0x%x, tail: 0x%x, end: 0x%x, len: %d\n",
 		(u32)skb->head, (u32)skb->data, (u32)skb->tail,
 		(u32)skb->end, skb->len);
@@ -669,7 +673,7 @@ void dump_skb_info(struct tc_priv *tcpriv, struct sk_buff *skb, u32 msg_type)
 		"skb: clone: %d, users: %d\n",
 		skb->cloned, atomic_read(&skb->users));
 	tc_dbg(tcpriv, type,
-		"skb: nfrag: %d\n", skb_shinfo(skb)->nr_frags);
+		"skb: nfrag: %d\n", skb_shinfo(skb)->nr_frags); */
 
 	type = msg_type & (MSG_TXDATA | MSG_RXDATA);
 	dump_skb_data(tcpriv, skb, skb->len, type);
@@ -900,7 +904,7 @@ static void fw_print_header_info(struct tc_priv *priv,
 	tc_dbg(priv, MSG_INIT, "\tNumber of firmware: %d\n", hdr->fw_num);
 	for (i = 0; i < hdr->fw_num; i++) {
 		tc_dbg(priv, MSG_INIT,
-			"\t\tFirmware[%d]: ID[%X] size[%d] at[0x%p]\n",
+			"\t\tFirmware[%d]: ID[%X] size[%d] at[0x%px]\n",
 			i,
 			hdr->fw_info[i].fw_id,
 			hdr->fw_info[i].fw_size,
@@ -1059,7 +1063,7 @@ int ppe_fw_load(struct tc_priv *priv)
 		size = TO_BYSZ(fw_hdr->fw_info[i].fw_size);
 		if (id < FW_MAX) {
 			fw_bin->fw_ptr[id] = fw_bin->fw->data + off;
-			tc_dbg(priv, MSG_INIT, "Firmware pointer id(%d):size(%d), fw addr(%p), off(%d)\n",
+			tc_dbg(priv, MSG_INIT, "Firmware pointer id(%d):size(%d), fw addr(%px), off(%d)\n",
 				id, size, fw_bin->fw_ptr[id], off);
 			off += size;
 		} else {

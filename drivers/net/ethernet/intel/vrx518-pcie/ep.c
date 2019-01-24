@@ -416,9 +416,9 @@ static int dc_ep_msi_enable(struct pci_dev *pdev, int nvec)
 #if 0
 	err = pci_enable_msi_exact(pdev, nvec);
 #else
-	pci_alloc_irq_vectors(pdev, 1, nvec, PCI_IRQ_MSI);
+	err = pci_alloc_irq_vectors(pdev, 1, nvec, PCI_IRQ_MSI);
 #endif
-	if (err) {
+	if (err <= 0) {
 		ep_dev_err(&pdev->dev,
 			"%s: Failed to enable MSI interrupts error code: %d\n",
 			__func__, err);
@@ -505,9 +505,9 @@ static int dc_ep_probe(struct pci_dev *pdev, const struct pci_device_id *id)
 	size_t memsize;
 	int msi_mode;
 	static int cards_found;
-#ifndef CONFIG_OF
+//#ifndef CONFIG_OF
 	struct pcie_ep_adapter *adapter;
-#endif
+//#endif
 	struct dc_ep_priv *priv;
 
 	ret = pci_enable_device(pdev);
@@ -567,6 +567,8 @@ static int dc_ep_probe(struct pci_dev *pdev, const struct pci_device_id *id)
 	nvec = DC_EP_DEFAULT_MSI_VECTOR;
 	msi_mode = DC_EP_4_MSI_MODE;
 
+	printk("%s just reportin': In the middle of probe.\n", __func__);
+
 	current_ep = cards_found++;
 	priv = &g_dc_ep_info.pcie_ep[current_ep];
 	memset(priv, 0, sizeof(*priv));
@@ -596,8 +598,10 @@ static int dc_ep_probe(struct pci_dev *pdev, const struct pci_device_id *id)
 	priv->irq_base = pdev->irq;
 	spin_unlock(&dc_ep_lock);
 
+	printk("%s just reportin': Everything set up.\n", __func__);
 	/* for device tree create a device there */
-#ifndef CONFIG_OF
+//#ifndef CONFIG_OF
+	printk("%s just reportin': Preparing DT.\n", __func__);
 	adapter = kmalloc(sizeof(struct pcie_ep_adapter), GFP_KERNEL);
 	if (adapter == NULL)
 		goto err_iomap;
@@ -610,16 +614,17 @@ static int dc_ep_probe(struct pci_dev *pdev, const struct pci_device_id *id)
 			PTR_ERR(adapter->mei_dev));
 		goto err_msi;
 	}
-#endif
+//#endif
 	dc_ep_info_xchange(pdev, cards_found);
 	/* Disable output clock to save power */
 	dc_ep_clkod_disable(priv);
 	dc_aca_info_init(priv);
+	printk("%s just reportin': Went to sleep.\n", __func__);
 	return 0;
-#ifndef CONFIG_OF
+//#ifndef CONFIG_OF
 err_msi:
 	kfree(adapter);
-#endif
+//#endif
 err_iomap:
 	pci_iounmap(pdev, mem);
 err_master:

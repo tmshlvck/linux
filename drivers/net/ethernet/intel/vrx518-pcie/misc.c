@@ -40,6 +40,7 @@ void dc_ep_clkod_disable(struct dc_ep_priv *priv)
 
 void dc_ep_icu_init(struct dc_ep_priv *priv)
 {
+	printk("%s enter\n", __func__);
 	/* Enable all interrupts in ICU level */
 	wr32(ICU_DMA_TX_ALL, ICU_DMA_TX_IMER);
 	wr32(ICU_DMA_RX_ALL, ICU_DMA_RX_IMER);
@@ -52,10 +53,12 @@ void dc_ep_icu_init(struct dc_ep_priv *priv)
 
 	/* PCIe app has to enable all MSI interrupts regardless of MSI mode */
 	wr32(PCIE_MSI_EN_ALL, PCIE_APPL_MSI_EN);
+	printk("%s exit\n", __func__);
 }
 
 void dc_ep_icu_disable(struct dc_ep_priv *priv)
 {
+	printk("%s enter\n", __func__);
 	/* Disable all PCIe related interrupts */
 	wr32(0, PCIE_APPL_MSI_EN);
 
@@ -65,6 +68,7 @@ void dc_ep_icu_disable(struct dc_ep_priv *priv)
 	wr32(0, ICU_DMA_TX_IMER);
 	wr32(0, ICU_DMA_RX_IMER);
 	wr32(0, ICU_IMER);
+	printk("%s exit\n", __func__);
 }
 
 void dc_ep_icu_dis_intr(struct dc_ep_priv *priv, u32 bits)
@@ -99,6 +103,7 @@ int dc_ep_reset_device(struct dc_ep_priv *priv, u32 bits)
 {
 	int retry = EP_TIMEOUT;
 
+	printk("%s enter\n", __func__);
 	wr32(bits, RCU_REQ);
 	do { } while (retry-- && (!(rd32(RCU_STAT) & bits)));
 
@@ -106,6 +111,7 @@ int dc_ep_reset_device(struct dc_ep_priv *priv, u32 bits)
 		ep_dev_err(priv->dev, "%s failed to reset\n", __func__);
 		return -ETIME;
 	}
+	printk("%s exit\n", __func__);
 	return 0;
 }
 
@@ -114,11 +120,14 @@ int dc_ep_clk_on(struct dc_ep_priv *priv, u32 bits)
 	int retry = EP_TIMEOUT;
 	struct dc_aca *aca = to_aca(priv);
 
+	printk("%s writing to addr 0%x with priv->mem=0x%px bits=0x%x", __func__, (PMU_PWDCR), priv->mem, bits);
 	spin_lock(&aca->clk_lock);
 	wr32_mask(bits, 0, PMU_PWDCR);
 	spin_unlock(&aca->clk_lock);
 
 	do { } while (--retry && (rd32(PMU_SR) & bits));
+
+	printk("%s got back %x", __func__, rd32(PMU_SR));
 
 	if (!retry) {
 		ep_dev_err(priv->dev, "%s failed\n", __func__);
@@ -132,6 +141,7 @@ int dc_ep_clk_off(struct dc_ep_priv *priv, u32 bits)
 	int retry = EP_TIMEOUT;
 	struct dc_aca *aca = to_aca(priv);
 
+	printk("%s enter\n", __func__);
 	spin_lock(&aca->clk_lock);
 	wr32_mask(0, bits, PMU_PWDCR);
 	spin_unlock(&aca->clk_lock);
@@ -142,6 +152,7 @@ int dc_ep_clk_off(struct dc_ep_priv *priv, u32 bits)
 		ep_dev_err(priv->dev, "%s failed\n", __func__);
 		return -ETIME;
 	}
+	printk("%s exit\n", __func__);
 	return 0;
 }
 
@@ -149,6 +160,7 @@ int dc_ep_clk_set(struct dc_ep_priv *priv, u32 sysclk, u32 ppeclk)
 {
 	struct dc_aca *aca = to_aca(priv);
 
+	printk("%s enter\n", __func__);
 	if (sysclk > SYS_CLK_MAX || ppeclk > PPE_CLK_MAX)
 		return -EINVAL;
 
@@ -156,6 +168,7 @@ int dc_ep_clk_set(struct dc_ep_priv *priv, u32 sysclk, u32 ppeclk)
 	wr32_mask(PPE_CLK | SYS_CLK,
 		SM(sysclk, SYS_CLK) | SM(ppeclk, PPE_CLK), PLL_OMCFG);
 	spin_unlock(&aca->clk_lock);
+	printk("%s exit\n", __func__);
 	return 0;
 }
 
@@ -163,9 +176,11 @@ int dc_ep_clk_get(struct dc_ep_priv *priv, u32 *sysclk, u32 *ppeclk)
 {
 	u32 val;
 
+	printk("%s enter\n", __func__);
 	val = rd32(PLL_OMCFG);
 	*sysclk = MS(val, SYS_CLK);
 	*ppeclk = MS(val, PPE_CLK);
+	printk("%s exit\n", __func__);
 	return 0;
 }
 
@@ -173,6 +188,7 @@ int dc_ep_gpio_dir(struct dc_ep_priv *priv, u32 gpio, int dir)
 {
 	struct dc_aca *aca = to_aca(priv);
 
+	printk("%s enter\n", __func__);
 	if (gpio > aca->max_gpio)
 		return -EINVAL;
 
@@ -183,6 +199,7 @@ int dc_ep_gpio_dir(struct dc_ep_priv *priv, u32 gpio, int dir)
 		wr32(BIT(gpio), GPIO_DIRCLR);
 	else
 		wr32(BIT(gpio), GPIO_DIRSET);
+	printk("%s exit\n", __func__);
 	return 0;
 }
 
@@ -190,6 +207,7 @@ int dc_ep_gpio_set(struct dc_ep_priv *priv, u32 gpio, int val)
 {
 	struct dc_aca *aca = to_aca(priv);
 
+	printk("%s enter\n", __func__);
 	if (gpio > aca->max_gpio)
 		return -EINVAL;
 
@@ -199,6 +217,7 @@ int dc_ep_gpio_set(struct dc_ep_priv *priv, u32 gpio, int val)
 		wr32(BIT(gpio), GPIO_OUTSET);
 	else
 		wr32(BIT(gpio), GPIO_OUTCLR);
+	printk("%s exit\n", __func__);
 	return 0;
 }
 
@@ -231,6 +250,7 @@ int dc_ep_pinmux_set(struct dc_ep_priv *priv, u32 gpio, int func)
 	mutex_lock(&aca->pin_lock);
 	wr32_mask(PADC_MUX_M, func, PADC_MUX(gpio));
 	mutex_unlock(&aca->pin_lock);
+	printk("%s exit\n", __func__);
 	return 0;
 }
 

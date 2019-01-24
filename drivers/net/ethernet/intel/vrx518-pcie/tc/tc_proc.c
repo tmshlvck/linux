@@ -24,9 +24,10 @@
 
 #include <linux/fs.h>
 #include <linux/seq_file.h>
-#include <net/datapath_api.h>
+//#include <net/datapath_api.h>
 #include <net/genetlink.h>
 #include <linux/time.h>
+#include <linux/proc_fs.h>
 #include "inc/tc_main.h"
 #include "inc/reg_addr.h"
 #include "inc/tc_common.h"
@@ -1284,8 +1285,7 @@ static ssize_t proc_ptm_write_prio(struct file *file, const char __user *buf,
 	if (vrx_strcmpi(param_list[0], "help") == 0)
 		goto proc_ptm_prio_help;
 	else if (vrx_strcmpi(param_list[0], "flush") == 0) {
-		pq_map_flush(&ptm_tc->pqmap);
-		pq_map_map_iptos(&ptm_tc->pqmap);
+		pr_err("%s: Prio Map flush = NOOP.\n", __func__);
 	} else {
 		for (i = 0; i < num; i += 6) {
 			if ((vrx_strcmpi(param_list[i], "prio") == 0)
@@ -1311,7 +1311,8 @@ static ssize_t proc_ptm_write_prio(struct file *file, const char __user *buf,
 					__func__, prio, queue, preempt);
 				goto proc_ptm_prio_help;
 			} else {
-				pq_map_set_queue(&ptm_tc->pqmap, prio, queue);
+				printk("%s prio_q_map hit\n", __func__);
+				ptm_tc->prio_q_map[prio] = queue;
 				ptm_set_q_preempt(priv, queue, preempt);
 			}
 		}
@@ -1330,8 +1331,15 @@ static int proc_ptm_read_prio(struct seq_file *seq, void *v)
 	struct ptm_ep_priv *priv = (struct ptm_ep_priv *)seq->private;
 	struct ptm_priv *ptm_tc = priv->ptm_tc;
 
-	seq_puts(seq, "Prio Qid map:\n");
-	pq_map_seq_show(&ptm_tc->pqmap, seq);
+	seq_puts(seq, "Prio:\t\t");
+	for (i = 0; i < PTM_PRIO_Q_NUM; i++)
+		seq_printf(seq, "%d ", i);
+	seq_puts(seq, "\nQid:\t\t");
+	printk("%s prio_q_map hit\n", __func__);
+	for (i = 0; i < PTM_PRIO_Q_NUM; i++)
+		seq_printf(seq, "%d ",
+			ptm_tc->prio_q_map[i]);
+	seq_puts(seq, "\n");
 
 	seq_puts(seq, "VRX518: 1:Preemption / 0: Non-Preemption\n");
 	seq_puts(seq, "Preemption:\t");
@@ -1934,11 +1942,11 @@ static int proc_read_atm_cfg(struct seq_file *seq, void *v)
 	for (i = 0; i < ATM_PVC_NUMBER; i++) {
 		if ((priv->pvc_tbl & BIT(i)) == 0)
 			continue;
-		seq_printf(seq, "[%d]: VPI: %d, VCI: %d, dev: %s, MPoA type: %d, MPoA mode: %d, Subif_id: 0x%x, Tx Queue Table: 0x%x\n",
+/*		seq_printf(seq, "[%d]: VPI: %d, VCI: %d, dev: %s, MPoA type: %d, MPoA mode: %d, Subif_id: 0x%x, Tx Queue Table: 0x%x\n",
 			i, priv->conn[i].vcc->vpi, priv->conn[i].vcc->vci,
 			priv->conn[i].dev->name, priv->conn[i].mpoa_type,
 			priv->conn[i].mpoa_mode, priv->conn[i].subif_id,
-			priv->conn[i].sw_txq_tbl);
+			priv->conn[i].sw_txq_tbl); */
 	}
 	spin_unlock_bh(&priv->atm_lock);
 	print_ppe_clk(seq, priv->ep);
@@ -2112,8 +2120,6 @@ static void set_q_prio(struct atm_priv *priv,
 		return;
 	}
 	spin_unlock(&priv->atm_lock);
-
-	pq_map_set_queue(&priv->conn[conn].pqmap, prio, queue);
 }
 
 static ssize_t proc_atm_write_prio(struct file *file, const char __user *buf,
@@ -2178,7 +2184,7 @@ static ssize_t proc_atm_write_prio(struct file *file, const char __user *buf,
 				"Delete queue for PVC(%d:%d) successfully\n",
 				vpi, vci);
 		} else if (vrx_strcmpi(param_list[2], "flush") == 0) {
-			pq_map_flush(&priv->conn[conn].pqmap);
+			pr_err("%s: Prio Map flush = NOOP.\n", __func__);
 		} else {
 			prio = queue = -1;
 			for (i = 2; i < num; i += 4) {
@@ -2217,11 +2223,11 @@ proc_atm_prio_help:
 
 static int proc_atm_read_prio(struct seq_file *seq, void *v)
 {
-	int i;
+	int i,j;
 	struct atm_priv *priv = (struct atm_priv *)seq->private;
 	struct atm_pvc *conn;
 
-	seq_puts(seq, "Prio Qid map:\n");
+/*	seq_puts(seq, "Prio Qid map:\n");
 
 	for (i = 0; i < ATM_PVC_NUMBER; i++) {
 		if (priv->pvc_tbl & BIT(i)) {
@@ -2229,6 +2235,27 @@ static int proc_atm_read_prio(struct seq_file *seq, void *v)
 			seq_printf(seq, "PVC %d:%d:\n", conn->vcc->vpi,
 				conn->vcc->vci);
 			pq_map_seq_show(&conn->pqmap, seq);
+		}
+	} */
+
+	for (i = 0; i < ATM_PVC_NUMBER; i++) {
+		if (priv->pvc_tbl & BIT(i)) {
+			conn = &priv->conn[i];
+/*			seq_printf(seq, "PVC(%d:%d): Phy_Qid: ",
+				conn->vcc->vpi,
+				conn->vcc->vci); */
+			for (j = 0; j < ATM_PVC_NUMBER; j++) {
+				if (conn->sw_txq_tbl & BIT(j))
+					seq_printf(seq, "%d ", j);
+			}
+			seq_puts(seq, "\n   Prio: ");
+			for (j = 0; j < ATM_PRIO_Q_NUM; j++)
+				seq_printf(seq, "%d ", j);
+			seq_puts(seq, "\n   Qid:  ");
+/*			for (j = 0; j < ATM_PRIO_Q_NUM; j++)
+				seq_printf(seq, "%d ",
+					conn->prio_queue_map[j]); */
+			seq_puts(seq, "\n");
 		}
 	}
 	return 0;
@@ -2245,9 +2272,9 @@ static int pvc_mib_seq_show(struct seq_file *seq, void *v)
 		spin_unlock_bh(&priv->atm_lock);
 		return 0;
 	}
-	seq_printf(seq, "PVC %u/%u, dev: %s, MIB:\n",
+/*	seq_printf(seq, "PVC %u/%u, dev: %s, MIB:\n",
 		pvc->vcc->vpi, pvc->vcc->vci,
-		(pvc->dev) ? pvc->dev->name : "N.A");
+		(pvc->dev) ? pvc->dev->name : "N.A"); */
 	spin_unlock_bh(&priv->atm_lock);
 
 	print_stat_mib(seq, &pvc->stats);

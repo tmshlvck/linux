@@ -41,9 +41,9 @@
 #include <linux/atmioc.h>
 #include <linux/skbuff.h>
 #include "inc/dsl_tc.h"
-#include <net/datapath_proc_api.h>
+//#include <net/datapath_proc_api.h>
 #include <linux/atm.h>
-#include <net/datapath_api.h>
+//#include <net/datapath_api.h>
 #include <net/dc_ep.h>
 #include<linux/sched.h>
 #include<linux/kthread.h>
@@ -103,7 +103,8 @@ static inline unsigned int txq_num(void)
 static inline unsigned int atm_tx_qid_get(struct atm_pvc *conn,
 						unsigned int priority)
 {
-	return pq_map_get_queue(&conn->pqmap, priority);
+//	return pq_map_get_queue(&conn->pqmap, priority);
+	return 0;
 }
 
 /**
@@ -493,12 +494,12 @@ static void set_qsb(struct atm_priv *priv, struct atm_vcc *vcc,
 	/* Weighted Fair Queueing Factor (WFQF) */
 	switch (qos->txtp.traffic_class) {
 	case ATM_CBR:
-	case ATM_VBR_RT:
+//	case ATM_VBR_RT:
 		/*  real time queue gets weighted fair queueing bypass  */
-		q_parm_tbl.bit.wfqf = 0;
-		break;
-	case ATM_VBR_NRT:
-	case ATM_UBR_PLUS:
+//		q_parm_tbl.bit.wfqf = 0;
+//		break;
+//	case ATM_VBR_NRT:
+//	case ATM_UBR_PLUS:
 		/*  WFQF calculation here is based on virtual cell rates,
 		      to reduce granularity for high rates
 		*/
@@ -506,7 +507,7 @@ static void set_qsb(struct atm_priv *priv, struct atm_vcc *vcc,
 		/*  wfqf = qsb_minimum_cell_rate * QSB_WFQ_NONUBR_MAX /
 			requested_minimum_peak_cell_rate
 		*/
-		if (qos->txtp.min_pcr == 0)
+/*		if (qos->txtp.min_pcr == 0)
 			q_parm_tbl.bit.wfqf = QSB_WFQ_NONUBR_MAX;
 		else {
 			tmp = QSB_GCR_MIN * QSB_WFQ_NONUBR_MAX /
@@ -520,7 +521,7 @@ static void set_qsb(struct atm_priv *priv, struct atm_vcc *vcc,
 				q_parm_tbl.bit.wfqf = tmp;
 		}
 		break;
-
+*/
 	case ATM_UBR:
 	default:
 		q_parm_tbl.bit.wfqf = QSB_WFQ_UBR_BYPASS;
@@ -530,36 +531,36 @@ static void set_qsb(struct atm_priv *priv, struct atm_vcc *vcc,
 	/* Sustained Cell Rate (SCR) Leaky Bucket Shaper VBR.0/VBR.1 */
 	if (qos->txtp.traffic_class == ATM_VBR_RT ||
 		qos->txtp.traffic_class == ATM_VBR_NRT) {
-		if (qos->txtp.scr == 0) {
+//		if (qos->txtp.scr == 0) {
 			/* disable shaper */
 			q_vbr_parm_tbl.bit.taus = 0;
 			q_vbr_parm_tbl.bit.ts = 0;
-		} else {
+//		} else {
 			/* Cell Loss Priority  (CLP) */
-			if ((vcc->atm_options & ATM_ATMOPT_CLP))
+//			if ((vcc->atm_options & ATM_ATMOPT_CLP))
 				/* CLP1 */
-				q_parm_tbl.bit.vbr = 1;
-			else
+//				q_parm_tbl.bit.vbr = 1;
+//			else
 				/* CLP0 */
-				q_parm_tbl.bit.vbr = 0;
+//				q_parm_tbl.bit.vbr = 0;
 			/* Rate Shaper Parameter (TS) and
 			    Burst Tolerance Parameter for SCR (tauS)
 			*/
-			tmp = ((qsb_clk * param->qsb_tstep) >> 5) /
-					qos->txtp.scr + 1;
-			q_vbr_parm_tbl.bit.ts
-				= tmp > QSB_TP_TS_MAX ? QSB_TP_TS_MAX : tmp;
-			tmp = (qos->txtp.mbs - 1) *
-				(q_vbr_parm_tbl.bit.ts -
-					q_parm_tbl.bit.tp) / 64;
-			if (tmp == 0)
-				q_vbr_parm_tbl.bit.taus = 1;
-			else if (tmp > QSB_TAUS_MAX)
-				q_vbr_parm_tbl.bit.taus
-					= QSB_TAUS_MAX;
-			else
-				q_vbr_parm_tbl.bit.taus = tmp;
-		}
+//			tmp = ((qsb_clk * param->qsb_tstep) >> 5) /
+//					qos->txtp.scr + 1;
+//			q_vbr_parm_tbl.bit.ts
+//				= tmp > QSB_TP_TS_MAX ? QSB_TP_TS_MAX : tmp;
+//			tmp = (qos->txtp.mbs - 1) *
+//				(q_vbr_parm_tbl.bit.ts -
+//					q_parm_tbl.bit.tp) / 64;
+//			if (tmp == 0)
+//				q_vbr_parm_tbl.bit.taus = 1;
+//			else if (tmp > QSB_TAUS_MAX)
+//				q_vbr_parm_tbl.bit.taus
+//					= QSB_TAUS_MAX;
+//			else
+//				q_vbr_parm_tbl.bit.taus = tmp;
+//		}
 	} else {
 		q_vbr_parm_tbl.bit.taus = 0;
 		q_vbr_parm_tbl.bit.ts = 0;
@@ -773,7 +774,7 @@ static int print_datetime(char *buffer, const struct timespec *datetime)
 	}
 	nsec = timespec_to_ns(datetime);
 	tv = ns_to_timeval(nsec);
-	time_to_tm(tv.tv_sec, 0, &nowtm);
+//	time_to_tm(tv.tv_sec, 0, &nowtm);
 	memset(tmbuf, 0, 64);
 
 	snprintf(tmbuf, sizeof(tmbuf), "%ld-%d-%d %d:%d:%d",
@@ -1097,7 +1098,7 @@ static int ppe_open(struct atm_vcc *vcc)
 	}
 
 	/* check bandwidth */
-	if ((vcc->qos.txtp.traffic_class == ATM_CBR &&
+/*	if ((vcc->qos.txtp.traffic_class == ATM_CBR &&
 		vcc->qos.txtp.max_pcr >
 			(port->tx_max_cell_rate - port->tx_used_cell_rate))
 		|| (vcc->qos.txtp.traffic_class == ATM_VBR_RT &&
@@ -1111,7 +1112,7 @@ static int ppe_open(struct atm_vcc *vcc)
 			(port->tx_max_cell_rate - port->tx_used_cell_rate))) {
 		tc_err(priv->tc_priv, MSG_INIT, "exceed TX line rate\n");
 		return -EINVAL;
-	}
+	} */
 
 	tc_dbg(priv->tc_priv, MSG_INIT, "PVC (%d.%d)\n", vpi, vci);
 
@@ -1166,16 +1167,16 @@ static int ppe_open(struct atm_vcc *vcc)
 	case ATM_VBR_RT:
 		port->tx_used_cell_rate += vcc->qos.txtp.max_pcr;
 		break;
-	case ATM_VBR_NRT:
-		port->tx_used_cell_rate += vcc->qos.txtp.scr;
-		break;
-	case ATM_UBR_PLUS:
-		port->tx_used_cell_rate += vcc->qos.txtp.min_pcr;
-		break;
+//	case ATM_VBR_NRT:
+//		port->tx_used_cell_rate += vcc->qos.txtp.scr;
+//		break;
+//	case ATM_UBR_PLUS:
+//		port->tx_used_cell_rate += vcc->qos.txtp.min_pcr;
+//		break;
 	}
 
-	pq_map_init(&priv->conn[conn].pqmap, 0);
-	pq_map_add_queue(&priv->conn[conn].pqmap, sw_txq);
+//	pq_map_init(&priv->conn[conn].pqmap, 0);
+//	pq_map_add_queue(&priv->conn[conn].pqmap, sw_txq);
 
 	/* update atm_vcc structure */
 	vcc->itf = (int)vcc->dev->phy_data;
@@ -1240,7 +1241,7 @@ static void ppe_close(struct atm_vcc *vcc)
 	priv->pvc_tbl &= ~(BIT(cid));
 	priv->sw_txq_tbl &= ~(conn->sw_txq_tbl);
 	spin_unlock(&priv->atm_lock);
-	pq_map_release(&conn->pqmap);
+//	pq_map_release(&conn->pqmap);
 	dev = conn->dev;
 	if (!dev)
 		sprintf(dev_name, "atm_%d%d",
@@ -1257,15 +1258,15 @@ static void ppe_close(struct atm_vcc *vcc)
 	/* release bandwidth */
 	switch (vcc->qos.txtp.traffic_class) {
 	case ATM_CBR:
-	case ATM_VBR_RT:
+//	case ATM_VBR_RT:
 		port->tx_used_cell_rate -= vcc->qos.txtp.max_pcr;
 		break;
-	case ATM_VBR_NRT:
+/*	case ATM_VBR_NRT:
 		port->tx_used_cell_rate -= vcc->qos.txtp.scr;
 		break;
 	case ATM_UBR_PLUS:
 		port->tx_used_cell_rate -= vcc->qos.txtp.min_pcr;
-		break;
+		break; */
 	}
 
 	/* idle for a while to let parallel operation finish */
@@ -1342,7 +1343,7 @@ static int ppe_send(struct atm_vcc *vcc, struct sk_buff *skb)
 	}
 
 	/* assume LLC header + Ethernet ID: 6+2 */
-	if (__skb_put_padto(skb, ETH_ZLEN + 8))
+	if (__skb_put_padto(skb, ETH_ZLEN + 8, true))
 		goto CHECK_SHOWTIME_FAIL;
 
 	dump_skb_info(priv->tc_priv, skb, (MSG_TX | MSG_TXDATA));
@@ -1621,7 +1622,7 @@ static void oam_push(struct atm_priv *priv, void *oam_ptr, unsigned int len)
 		conn = -1; /* invalid */
 	if (conn_valid(conn) && priv->conn[conn].vcc != NULL) {
 		vcc = priv->conn[conn].vcc;
-		priv->conn[conn].access_time = current_kernel_time();
+//		priv->conn[conn].access_time = current_kernel_time();
 
 		tc_dbg(priv->tc_priv, MSG_OAM_RX, "conn=%d, vpi: %d, vci:%d\n",
 			conn, header->vpi, header->vci);
@@ -2989,7 +2990,8 @@ static unsigned int atm_get_pvc_id(struct sk_buff *skb)
 		return -EINVAL;
 	}
 
-	return (skb->DW0 >> 3) & 0xF;
+//	return (skb->DW0 >> 3) & 0xF;
+	return 0;
 }
 
 static int atm_get_qid_by_vcc(struct net_device *dev, struct sk_buff *skb,
@@ -3060,7 +3062,7 @@ int sw_tx_queue_del(struct atm_priv *priv, int conn)
 		return -EIO;
 	}
 
-	pq_map_del_queue(&connect->pqmap, qid);
+//	pq_map_del_queue(&connect->pqmap, qid);
 
 	/* Update queue map table */
 	new_q_tbl = connect->sw_txq_tbl & (~(BIT(qid)));
@@ -3126,7 +3128,7 @@ int sw_tx_queue_add(struct atm_priv *priv, int conn)
 	tc_mem_write(priv, fpi_addr(WTX_Q_CFG(qid)),
 		&wtx_q_cfg, sizeof(wtx_q_cfg));
 
-	pq_map_add_queue(&connect->pqmap, qid);
+//	pq_map_add_queue(&connect->pqmap, qid);
 
 	return 0;
 }
@@ -3248,7 +3250,7 @@ static void atm_push(struct net_device *rxif,
 					+= skb->len;
 			} else
 				priv->stats.aal5_rx_errors++;
-			priv->conn[conn].access_time = current_kernel_time();
+//			priv->conn[conn].access_time = current_kernel_time();
 
 			vcc->push(vcc, skb);
 
@@ -3446,7 +3448,7 @@ static int atm_datapath_init(struct atm_priv *priv)
 	qsb_global_set(priv);
 	setup_oam_htu_entry(priv);
 
-	atm_hook_mpoa_setup = mpoa_setup;
+	//atm_hook_mpoa_setup = mpoa_setup;
 	atm_cb_setup(priv, 1);
 
 	return 0;
