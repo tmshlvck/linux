@@ -23,6 +23,9 @@
 
 #define LED_AUTONOMOUS_ADDR 3
 #define LED_ONOFF_ADDR 4
+#define LED_COLOR_ADDR 5
+#define GLOB_BRIGHTNESS_READ 8
+#define GLOB_BRIGHTNESS_WRITE 7
 
 
 
@@ -48,6 +51,9 @@ struct omnia_led {
 	int led_num; /* 0 .. 11 + 12=ALL */
 	char name[32];
 	u8 autonomous;
+	u8 r;
+	u8 g;
+	u8 b;
 };
 
 static int omnia_led_brightness_set(struct omnia_led *led,
@@ -87,6 +93,59 @@ static int omnia_led_autonomous_set(struct omnia_led *led, int autonomous)
 
 	mutex_unlock(&led->chip->mutex);
 	return ret;
+}
+
+static int omnia_glob_brightness_set(struct omnia_led_mcu *chip,
+					int glob_brightness)
+{
+	int ret;
+
+	mutex_lock(&chip->mutex);
+
+	ret = i2c_smbus_write_byte_data(chip->client, GLOB_BRIGHTNESS_WRITE,
+						(u8)glob_brightness);
+
+	mutex_unlock(&chip->mutex);
+	return ret;
+}
+
+static int omnia_glob_brightness_get(struct omnia_led_mcu *chip)
+{
+	int ret;
+
+	mutex_lock(&chip->mutex);
+
+	ret = i2c_smbus_read_byte_data(chip->client, GLOB_BRIGHTNESS_READ);
+
+	mutex_unlock(&chip->mutex);
+	return ret;
+}
+
+static int omnia_led_color_set(struct omnia_led *led, u8 r, u8 g, u8 b)
+{
+	int ret, i;
+	u8 buf[5];
+
+	buf[0] = LED_COLOR_ADDR;
+	buf[1] = led->led_num;
+	buf[2] = r;
+	buf[3] = g;
+	buf[4] = b;
+
+	mutex_lock(&led->chip->mutex);
+
+	ret = i2c_master_send(led->chip->client, buf, 5);
+
+	if (led->led_num == ALL_LEDS_INDEX) {
+		for (i=0; i<(MAX_LEDS-1); i++) {
+			led->chip->leds[i].r = led->r;
+			led->chip->leds[i].g = led->g;
+			led->chip->leds[i].b = led->b;
+		}
+	}
+
+	mutex_unlock(&led->chip->mutex);
+	return -(ret<=0);
 }
 
 static int omnia_led_set(struct led_classdev *led_cdev,
@@ -145,6 +204,98 @@ omnia_dt_init(struct i2c_client *client)
 
 	return pdata;
 }
+
+static ssize_t global_brightness_show(struct device *d,
+                struct device_attribute *attr, char *buf)
+{
+	struct i2c_client *client = to_i2c_client(d);
+	struct omnia_led_mcu *chip = i2c_get_clientdata(client);
+
+	return scnprintf(buf, PAGE_SIZE, "%d\n",
+				omnia_glob_brightness_get(chip));
+}
+
+static ssize_t global_brightness_store(struct device *d,
+                struct device_attribute *attr, const char *buf, size_t count)
+{
+	struct i2c_client *client = to_i2c_client(d);
+        struct omnia_led_mcu *chip = i2c_get_clientdata(client);
+	int ret;
+	int global_brightness;
+
+	if ((sscanf(buf, "%i", &global_brightness)) != 1)
+		return -EINVAL;
+
+	ret = omnia_glob_brightness_set(chip, global_brightness);
+	if (ret < 0)
+		return ret;
+
+	return count;
+}
+static DEVICE_ATTR_RW(global_brightness);
+
+static ssize_t autonomous_show(struct device *d,
+                struct device_attribute *attr, char *buf)
+{
+	struct led_classdev *led_cdev = dev_get_drvdata(d);
+	struct omnia_led *led =
+			container_of(led_cdev, struct omnia_led, led_cdev);
+
+	return scnprintf(buf, PAGE_SIZE, "%d\n", led->autonomous);
+}
+
+static ssize_t autonomous_store(struct device *d,
+                struct device_attribute *attr, const char *buf, size_t count)
+{
+	int ret, autonomous;
+	struct led_classdev *led_cdev = dev_get_drvdata(d);
+	struct omnia_led *led =
+			container_of(led_cdev, struct omnia_led, led_cdev);
+
+	if ((sscanf(buf, "%i", &autonomous)) != 1)
+		return -EINVAL;
+
+	ret = omnia_led_autonomous_set(led, autonomous);
+	if (ret < 0)
+		return ret;
+
+	led->autonomous = autonomous;
+	return count;
+}
+static DEVICE_ATTR_RW(autonomous);
+
+static ssize_t color_show(struct device *d,
+                struct device_attribute *attr, char *buf)
+{
+	struct led_classdev *led_cdev = dev_get_drvdata(d);
+	struct omnia_led *led =
+			container_of(led_cdev, struct omnia_led, led_cdev);
+
+	return scnprintf(buf, PAGE_SIZE, "%d %d %d\n", led->r, led->g, led->b);
+}
+
+static ssize_t color_store(struct device *d,
+                struct device_attribute *attr, const char *buf, size_t count)
+{
+	int ret, r, g, b;
+	struct led_classdev *led_cdev = dev_get_drvdata(d);
+	struct omnia_led *led =
+			container_of(led_cdev, struct omnia_led, led_cdev);
+
+	if ((sscanf(buf, "%i %i %i", &r, &g, &b)) != 3)
+		return -EINVAL;
+
+	ret = omnia_led_color_set(led, r, g, b);
+	if (ret < 0)
+		return ret;
+
+	led->r = r;
+	led->g = g;
+	led->b = b;
+	return count;
+}
+static DEVICE_ATTR_RW(color);
+
 
 static const struct of_device_id of_omnia_match[] = {
 	{ .compatible = "turris-leds,omnia", },
@@ -211,15 +362,52 @@ static int omnia_probe(struct i2c_client *client,
 		if (err < 0)
 			goto exit;
 
+		err = device_create_file(leds[i].led_cdev.dev,
+						&dev_attr_autonomous);
+		if (err < 0) {
+			dev_err(leds[i].led_cdev.dev,
+				"failed to create attribute autonomous\n");
+			goto exit;
+		}
+
+		err = device_create_file(leds[i].led_cdev.dev,
+						&dev_attr_color);
+		if (err < 0) {
+			dev_err(leds[i].led_cdev.dev,
+				"failed to create attribute color\n");
+			goto exit;
+		}
+
 		/* Set AUTO for all LEDs by default */
 		leds[i].autonomous = 0;
 		omnia_led_autonomous_set(&leds[i], 1);
+
+		/* Set brightness to LED_OFF by default */
+		omnia_led_brightness_set(&leds[i], LED_OFF);
+
+		/* MCU default color is white */
+		leds[i].r = 255;
+		leds[i].g = 255;
+		leds[i].b = 255;
+	}
+
+	err = device_create_file(&client->dev, &dev_attr_global_brightness);
+	if (err < 0) {
+		dev_err(&client->dev,
+			"failed to create attribute global_brightness\n");
+		goto exit;
 	}
 
 	return 0;
 
 exit:
+	device_remove_file(&client->dev, &dev_attr_global_brightness);
 	while (i--) {
+		device_remove_file(chip->leds[i].led_cdev.dev,
+			&dev_attr_color);
+		device_remove_file(chip->leds[i].led_cdev.dev,
+			&dev_attr_autonomous);
+
 		led_classdev_unregister(&leds[i].led_cdev);
 	}
 
@@ -231,7 +419,14 @@ static int omnia_remove(struct i2c_client *client)
 	struct omnia_led_mcu *chip = i2c_get_clientdata(client);
 	int i;
 
+	device_remove_file(&client->dev, &dev_attr_global_brightness);
+
 	for (i = 0; i < MAX_LEDS; i++) {
+		device_remove_file(chip->leds[i].led_cdev.dev,
+			&dev_attr_color);
+		device_remove_file(chip->leds[i].led_cdev.dev,
+			&dev_attr_autonomous);
+
 		led_classdev_unregister(&chip->leds[i].led_cdev);
 
 		/* Set AUTO for the LED */
