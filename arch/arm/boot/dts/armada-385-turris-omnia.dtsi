@@ -46,7 +46,6 @@
 				pinctrl-names = "default";
 				pinctrl-0 = <&sdhci_pins>;
 				status = "okay";
-
 				bus-width = <8>;
 				no-1-8-v;
 				non-removable;
@@ -54,11 +53,25 @@
 
 			usb3@f0000 {
 				status = "okay";
+				usb-phy = <&usb30_phy>;
 			};
 
 			usb3@f8000 {
 				status = "okay";
+				usb-phy = <&usb31_phy>;
 			};
+		};
+
+		usb30_phy: usb30_phy {
+			compatible = "usb-nop-xceiv";
+			vcc-supply = <&reg_xhci0_vbus>;
+			#phy-cells = <0>;
+		};
+
+		usb31_phy: usb31_phy {
+			compatible = "usb-nop-xceiv";
+			vcc-supply = <&reg_xhci1_vbus>;
+			#phy-cells = <0>;
 		};
 
 		pcie {
@@ -80,6 +93,27 @@
 			};
 		};
 	};
+
+	reg_xhci0_vbus: usb3-vbus0 {
+		compatible = "regulator-fixed";
+		regulator-name = "usb3-vbus0";
+		regulator-min-microvolt = <5000000>;
+		regulator-max-microvolt = <5000000>;
+		regulator-boot-on;
+		enable-active-high;
+		gpio = <&omniagpio 0 GPIO_ACTIVE_HIGH>;
+	};
+
+	reg_xhci1_vbus: usb3-vbus1 {
+		compatible = "regulator-fixed";
+		regulator-name = "usb3-vbus1";
+		regulator-min-microvolt = <5000000>;
+		regulator-max-microvolt = <5000000>;
+		regulator-boot-on;
+		enable-active-high;
+		gpio = <&omniagpio 1 GPIO_ACTIVE_HIGH>;
+	};
+
 };
 
 /* Disable eth0 unless there is DSA driver supporting two CPU ports. */
@@ -147,6 +181,24 @@
 				 * 		u32 crc32;
 				 * 	};
 				 */
+			};
+
+			omniagpio: gpio@2a {
+				/*
+				 * GPIO expander for USB power
+				 * regulators
+				 */
+				compatible = "turris-gpio,omnia";
+				reg = <0x2a>;
+
+				pinctrl-names = "default";
+				pinctrl-0 = <&mcuint_pins>;
+
+				interrupt-parent = <&gpio1>;
+				interrupts = <11 IRQ_TYPE_LEVEL_LOW>;
+
+				gpio-controller;
+				#gpio-cells = <2>;
 			};
 		};
 
@@ -306,6 +358,11 @@
 &pinctrl {
 	wanint_pins: wanint-pins {
 		marvell,pins = "mpp46";
+		marvell,function = "gpio";
+	};
+
+	mcuint_pins: mcuint-pins {
+		marvell,pins = "mpp43";
 		marvell,function = "gpio";
 	};
 
