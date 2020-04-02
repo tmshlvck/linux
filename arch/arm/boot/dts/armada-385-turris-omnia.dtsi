@@ -85,12 +85,13 @@
 
 	sfp: sfp {
 		compatible = "sff,sfp";
-		i2c-bus = <&i2csfp>;
-/*		tx-fault-gpios = <&pcawan 0 GPIO_ACTIVE_HIGH>; */
-		tx-disable-gpios = <&pcawan 1 GPIO_ACTIVE_HIGH>;
-		rate-select0-gpios = <&pcawan 2 GPIO_ACTIVE_HIGH>;
-		los-gpios = <&pcawan 3 GPIO_ACTIVE_HIGH>;
-		mod-def0-gpios = <&pcawan 4 GPIO_ACTIVE_LOW>;
+		status = "disabled";
+		i2c-bus = <&sfpii2c>;
+/*		tx-fault-gpios = <&sfpgpio 0 GPIO_ACTIVE_HIGH>; */
+		tx-disable-gpios = <&sfpgpio 1 GPIO_ACTIVE_HIGH>;
+		rate-select0-gpios = <&sfpgpio 2 GPIO_ACTIVE_HIGH>;
+		los-gpios = <&sfpgpio 3 GPIO_ACTIVE_HIGH>;
+		mod-def0-gpios = <&sfpgpio 4 GPIO_ACTIVE_LOW>;
 	};
 };
 
@@ -180,7 +181,7 @@
 			/* routed to PCIe2 connector (CN62A) */
 		};
 
-		i2csfp: i2c@4 {
+		sfpi2c: i2c@4 {
 			#address-cells = <1>;
 			#size-cells = <0>;
 			reg = <4>;
@@ -209,7 +210,7 @@
 			#size-cells = <0>;
 			reg = <7>;
 
-			pcawan: gpio@71 {
+			sfpgpio: gpio@71 {
 				/*
 				 * GPIO expander for SFP+ signals and
 				 * and phy irq
@@ -218,7 +219,7 @@
 				reg = <0x71>;
 
 				pinctrl-names = "default";
-				pinctrl-0 = <&pcawan_pins>;
+				pinctrl-0 = <&sfpgpio_pins>;
 
 				interrupt-parent = <&gpio1>;
 				interrupts = <14 IRQ_TYPE_LEVEL_LOW>;
@@ -240,11 +241,11 @@
 	status = "okay";
 
 	phy: phy@1 {
-		status = "okay";
+		status = "disabled";
 		compatible = "ethernet-phy-id0141.0DD1", "ethernet-phy-ieee802.3-c22";
 		reg = <1>;
 
-		/* irq is connected to &pcawan pin 7 */
+		/* irq is connected to &sfpgpio pin 7 */
 	};
 
 	/* Switch MV88E6176 at address 0x10 */
@@ -303,7 +304,7 @@
 };
 
 &pinctrl {
-	pcawan_pins: pcawan-pins {
+	sfpgpio_pins: sfpgpio-pins {
 		marvell,pins = "mpp46";
 		marvell,function = "gpio";
 	};
